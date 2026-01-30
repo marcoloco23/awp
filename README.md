@@ -14,6 +14,8 @@ your-agent/
   TOOLS.md               # Environment config (optional)
   memory/                # Structured daily logs
     2026-01-30.md
+  artifacts/             # Versioned knowledge artifacts (SMP)
+    llm-research.md
 ```
 
 Every file is valid Markdown (human-readable) with structured YAML frontmatter (machine-parseable). No database, no server, no runtime. Just files in a directory, compatible with Git by default.
@@ -77,6 +79,10 @@ Tools exposed:
 - `awp_read_user` — Read human profile
 - `awp_read_memory` — Read memory (daily or long-term)
 - `awp_write_memory` — Log structured memory entries
+- `awp_artifact_read` — Read a knowledge artifact
+- `awp_artifact_write` — Create or update a knowledge artifact
+- `awp_artifact_list` — List all artifacts
+- `awp_artifact_search` — Search artifacts
 - `awp_workspace_status` — Workspace summary
 
 ## File Format
@@ -139,6 +145,32 @@ awp memory search "auth"
 ```
 
 Memory entries support `pinned: true` to prevent compaction of critical knowledge.
+
+## Knowledge Artifacts (SMP)
+
+Versioned, provenanced knowledge documents with confidence scores:
+
+```bash
+# Create an artifact
+awp artifact create llm-research --title "LLM Context Research" --tags ai,research
+
+# Edit the markdown body, then commit the change
+awp artifact commit llm-research -m "Added benchmark comparison"
+
+# List all artifacts
+awp artifact list
+
+# Search by content, title, or tags
+awp artifact search "context window"
+
+# View provenance history
+awp artifact log llm-research
+
+# Merge one artifact into another (additive)
+awp artifact merge target-slug source-slug
+```
+
+Artifacts track who wrote what, when, and with what confidence — full provenance for agent knowledge. See [spec/smp/smp-spec.md](spec/smp/smp-spec.md) for the Shared Memory Protocol specification.
 
 ## Specification
 

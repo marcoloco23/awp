@@ -4,7 +4,10 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /** Current AWP specification version */
-export const AWP_VERSION = "0.1.0";
+export const AWP_VERSION = "0.2.0";
+
+/** Current SMP protocol version */
+export const SMP_VERSION = "1.0";
 
 /** Required workspace files */
 export const REQUIRED_FILES = ["IDENTITY.md", "SOUL.md"] as const;
@@ -31,6 +34,9 @@ export const MANIFEST_PATH = ".awp/workspace.json";
 /** Memory directory */
 export const MEMORY_DIR = "memory";
 
+/** Artifacts directory */
+export const ARTIFACTS_DIR = "artifacts";
+
 /** File type to filename mapping */
 export const FILE_TYPE_MAP: Record<string, string> = {
   identity: "IDENTITY.md",
@@ -41,6 +47,7 @@ export const FILE_TYPE_MAP: Record<string, string> = {
   heartbeat: "HEARTBEAT.md",
   bootstrap: "BOOTSTRAP.md",
   "memory-longterm": "MEMORY.md",
+  "knowledge-artifact": "artifacts/",
 };
 
 /**
@@ -66,4 +73,5 @@ export const SCHEMA_MAP: Record<string, string> = {
   heartbeat: "heartbeat.schema.json",
   "memory-daily": "memory-daily.schema.json",
   "memory-longterm": "memory-longterm.schema.json",
+  "knowledge-artifact": "knowledge-artifact.schema.json",
 };

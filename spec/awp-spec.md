@@ -437,6 +437,7 @@ This specification follows Semantic Versioning. Breaking changes increment the m
 | `bootstrap` | BOOTSTRAP.md | First-run onboarding |
 | `memory-longterm` | MEMORY.md | Curated memory |
 | `memory-daily` | memory/*.md | Daily logs |
+| `knowledge-artifact` | artifacts/*.md | Knowledge artifacts (SMP) |
 
 ## Appendix B: Reserved Directories
 

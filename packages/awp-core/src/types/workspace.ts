@@ -146,6 +146,8 @@ export interface HeartbeatTask {
   enabled?: boolean;
 }
 
+import type { ArtifactFrontmatter } from "./artifact.js";
+
 /**
  * Union of all frontmatter types
  */
@@ -157,7 +159,8 @@ export type AnyFrontmatter =
   | ToolsFrontmatter
   | HeartbeatFrontmatter
   | MemoryDailyFrontmatter
-  | MemoryLongtermFrontmatter;
+  | MemoryLongtermFrontmatter
+  | ArtifactFrontmatter;
 
 /**
  * A parsed workspace file — frontmatter + markdown body

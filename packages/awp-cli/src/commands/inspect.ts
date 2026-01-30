@@ -86,6 +86,16 @@ export async function inspectCommand(): Promise<void> {
     console.log("  memory/: (not created)");
   }
 
+  // Count artifacts
+  try {
+    const artDir = join(root, "artifacts");
+    const files = await readdir(artDir);
+    const artFiles = files.filter((f) => f.endsWith(".md"));
+    console.log(`  artifacts/: ${artFiles.length} artifact(s)`);
+  } catch {
+    // artifacts/ doesn't exist yet — that's fine
+  }
+
   // Show capabilities and protocols
   if (info.manifest.capabilities?.length) {
     console.log("");

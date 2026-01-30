@@ -19,6 +19,11 @@ export type {
 } from "./types/workspace.js";
 
 export type {
+  ArtifactFrontmatter,
+  ProvenanceEntry,
+} from "./types/artifact.js";
+
+export type {
   AgentCard,
   AgentSkill,
   DIDDocument,
@@ -27,11 +32,13 @@ export type {
 
 export {
   AWP_VERSION,
+  SMP_VERSION,
   REQUIRED_FILES,
   OPTIONAL_FILES,
   ALL_WORKSPACE_FILES,
   MANIFEST_PATH,
   MEMORY_DIR,
+  ARTIFACTS_DIR,
   FILE_TYPE_MAP,
   SCHEMA_MAP,
   SCHEMAS_DIR,

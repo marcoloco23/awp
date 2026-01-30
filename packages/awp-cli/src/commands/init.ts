@@ -153,9 +153,12 @@ export async function initCommand(
   await writeFile(join(root, "USER.md"), USER_TEMPLATE, "utf-8");
   console.log("  Created USER.md");
 
-  // Create memory directory
+  // Create memory and artifacts directories
   await mkdir(join(root, "memory"), { recursive: true });
   console.log("  Created memory/");
+
+  await mkdir(join(root, "artifacts"), { recursive: true });
+  console.log("  Created artifacts/");
 
   console.log("");
   console.log(`AWP workspace initialized (${manifest.awp}).`);

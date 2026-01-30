@@ -6,7 +6,7 @@ import * as z from "zod";
 import { readFile, writeFile, readdir, mkdir, access } from "node:fs/promises";
 import { join } from "node:path";
 import matter from "gray-matter";
-import { AWP_VERSION, MEMORY_DIR } from "@agent-workspace/core";
+import { AWP_VERSION, SMP_VERSION, MEMORY_DIR, ARTIFACTS_DIR } from "@agent-workspace/core";
 
 const server = new McpServer({
   name: "awp-workspace",
@@ -26,6 +26,19 @@ async function fileExists(path: string): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Get agent DID from workspace manifest, or "anonymous"
+ */
+async function getAgentDid(root: string): Promise<string> {
+  try {
+    const raw = await readFile(join(root, ".awp", "workspace.json"), "utf-8");
+    const manifest = JSON.parse(raw);
+    return manifest.agent?.did || "anonymous";
+  } catch {
+    return "anonymous";
   }
 }
 
@@ -296,13 +309,304 @@ server.registerTool(
   }
 );
 
+// --- Tool: awp_artifact_read ---
+server.registerTool(
+  "awp_artifact_read",
+  {
+    title: "Read Knowledge Artifact",
+    description:
+      "Read a knowledge artifact by slug. Returns metadata (title, version, confidence, provenance) and body content.",
+    inputSchema: {
+      slug: z.string().describe("Artifact slug (e.g., 'llm-context-research')"),
+    },
+  },
+  async ({ slug }) => {
+    const root = getWorkspaceRoot();
+    const path = join(root, ARTIFACTS_DIR, `${slug}.md`);
+    try {
+      const raw = await readFile(path, "utf-8");
+      const { data, content } = matter(raw);
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              { frontmatter: data, body: content.trim() },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    } catch {
+      return {
+        content: [
+          { type: "text" as const, text: `Artifact "${slug}" not found.` },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+// --- Tool: awp_artifact_write ---
+server.registerTool(
+  "awp_artifact_write",
+  {
+    title: "Write Knowledge Artifact",
+    description:
+      "Create or update a knowledge artifact. If the artifact exists, increments version and appends provenance. If new, creates it with version 1.",
+    inputSchema: {
+      slug: z.string().describe("Artifact slug (lowercase, hyphens only)"),
+      title: z.string().optional().describe("Title (required for new artifacts)"),
+      content: z.string().describe("Markdown body content"),
+      tags: z.array(z.string()).optional().describe("Categorization tags"),
+      confidence: z
+        .number()
+        .min(0)
+        .max(1)
+        .optional()
+        .describe("Confidence score (0.0-1.0)"),
+      message: z.string().optional().describe("Commit message for provenance"),
+    },
+  },
+  async ({ slug, title, content: bodyContent, tags, confidence, message }) => {
+    const root = getWorkspaceRoot();
+    const artifactsDir = join(root, ARTIFACTS_DIR);
+    await mkdir(artifactsDir, { recursive: true });
+
+    const filePath = join(artifactsDir, `${slug}.md`);
+    const did = await getAgentDid(root);
+    const now = new Date().toISOString();
+
+    let fileData: { data: any; content: string };
+    let version: number;
+    let isNew = false;
+
+    try {
+      const raw = await readFile(filePath, "utf-8");
+      fileData = matter(raw);
+
+      // Update existing
+      fileData.data.version = (fileData.data.version || 1) + 1;
+      version = fileData.data.version;
+      fileData.data.lastModified = now;
+      fileData.data.modifiedBy = did;
+      fileData.content = `\n${bodyContent}\n`;
+
+      if (confidence !== undefined) fileData.data.confidence = confidence;
+      if (tags) fileData.data.tags = tags;
+      if (title) fileData.data.title = title;
+
+      // Add author if new
+      if (!fileData.data.authors?.includes(did)) {
+        if (!fileData.data.authors) fileData.data.authors = [];
+        fileData.data.authors.push(did);
+      }
+
+      // Append provenance
+      if (!fileData.data.provenance) fileData.data.provenance = [];
+      fileData.data.provenance.push({
+        agent: did,
+        action: "updated",
+        timestamp: now,
+        message,
+        confidence,
+      });
+    } catch {
+      // Create new
+      isNew = true;
+      version = 1;
+      const artifactTitle =
+        title ||
+        slug
+          .split("-")
+          .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(" ");
+
+      fileData = {
+        data: {
+          awp: AWP_VERSION,
+          smp: SMP_VERSION,
+          type: "knowledge-artifact",
+          id: `artifact:${slug}`,
+          title: artifactTitle,
+          authors: [did],
+          version: 1,
+          confidence,
+          tags: tags?.length ? tags : undefined,
+          created: now,
+          lastModified: now,
+          modifiedBy: did,
+          provenance: [
+            {
+              agent: did,
+              action: "created",
+              timestamp: now,
+              message,
+            },
+          ],
+        },
+        content: `\n${bodyContent}\n`,
+      };
+    }
+
+    const output = matter.stringify(fileData.content, fileData.data);
+    await writeFile(filePath, output, "utf-8");
+
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: `${isNew ? "Created" : "Updated"} artifacts/${slug}.md (version ${version})`,
+        },
+      ],
+    };
+  }
+);
+
+// --- Tool: awp_artifact_list ---
+server.registerTool(
+  "awp_artifact_list",
+  {
+    title: "List Knowledge Artifacts",
+    description:
+      "List all knowledge artifacts in the workspace with metadata",
+    inputSchema: {
+      tag: z.string().optional().describe("Filter by tag"),
+    },
+  },
+  async ({ tag }) => {
+    const root = getWorkspaceRoot();
+    const artifactsDir = join(root, ARTIFACTS_DIR);
+
+    let files: string[];
+    try {
+      files = await readdir(artifactsDir);
+    } catch {
+      return {
+        content: [
+          { type: "text" as const, text: JSON.stringify({ artifacts: [] }, null, 2) },
+        ],
+      };
+    }
+
+    const mdFiles = files.filter((f) => f.endsWith(".md")).sort();
+    const artifacts: any[] = [];
+
+    for (const f of mdFiles) {
+      try {
+        const raw = await readFile(join(artifactsDir, f), "utf-8");
+        const { data } = matter(raw);
+        if (data.type !== "knowledge-artifact") continue;
+
+        if (tag && !data.tags?.some((t: string) => t.toLowerCase() === tag.toLowerCase())) {
+          continue;
+        }
+
+        artifacts.push({
+          slug: f.replace(/\.md$/, ""),
+          title: data.title,
+          version: data.version,
+          confidence: data.confidence,
+          tags: data.tags,
+          authors: data.authors,
+          lastModified: data.lastModified,
+        });
+      } catch {
+        // Skip unparseable
+      }
+    }
+
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: JSON.stringify({ artifacts }, null, 2),
+        },
+      ],
+    };
+  }
+);
+
+// --- Tool: awp_artifact_search ---
+server.registerTool(
+  "awp_artifact_search",
+  {
+    title: "Search Knowledge Artifacts",
+    description: "Search artifacts by title, tags, or body content",
+    inputSchema: {
+      query: z.string().describe("Search query"),
+    },
+  },
+  async ({ query }) => {
+    const root = getWorkspaceRoot();
+    const artifactsDir = join(root, ARTIFACTS_DIR);
+    const queryLower = query.toLowerCase();
+
+    let files: string[];
+    try {
+      files = await readdir(artifactsDir);
+    } catch {
+      return {
+        content: [
+          { type: "text" as const, text: JSON.stringify({ results: [] }, null, 2) },
+        ],
+      };
+    }
+
+    const mdFiles = files.filter((f) => f.endsWith(".md")).sort();
+    const results: any[] = [];
+
+    for (const f of mdFiles) {
+      try {
+        const raw = await readFile(join(artifactsDir, f), "utf-8");
+        const { data, content } = matter(raw);
+        if (data.type !== "knowledge-artifact") continue;
+
+        const titleMatch = data.title?.toLowerCase().includes(queryLower);
+        const tagMatch = data.tags?.some((t: string) =>
+          t.toLowerCase().includes(queryLower)
+        );
+        const bodyMatch = content.toLowerCase().includes(queryLower);
+
+        if (titleMatch || tagMatch || bodyMatch) {
+          results.push({
+            slug: f.replace(/\.md$/, ""),
+            title: data.title,
+            version: data.version,
+            confidence: data.confidence,
+            tags: data.tags,
+            matchedIn: [
+              titleMatch && "title",
+              tagMatch && "tags",
+              bodyMatch && "body",
+            ].filter(Boolean),
+          });
+        }
+      } catch {
+        // Skip
+      }
+    }
+
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: JSON.stringify({ results }, null, 2),
+        },
+      ],
+    };
+  }
+);
+
 // --- Tool: awp_workspace_status ---
 server.registerTool(
   "awp_workspace_status",
   {
     title: "Workspace Status",
     description:
-      "Get AWP workspace health status — manifest info, file presence, memory stats",
+      "Get AWP workspace health status — manifest info, file presence, memory stats, artifact count",
     inputSchema: {},
   },
   async () => {
@@ -347,6 +651,16 @@ server.registerTool(
       };
     } catch {
       status.memory = { logCount: 0, latest: null };
+    }
+
+    // Artifact stats
+    try {
+      const artDir = join(root, ARTIFACTS_DIR);
+      const files = await readdir(artDir);
+      const mdFiles = files.filter((f) => f.endsWith(".md"));
+      status.artifacts = { count: mdFiles.length };
+    } catch {
+      status.artifacts = { count: 0 };
     }
 
     return {

@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://awp.dev/schemas/knowledge-artifact.schema.json",
+  "title": "AWP Knowledge Artifact Frontmatter",
+  "description": "Frontmatter schema for knowledge artifact files (SMP)",
+  "type": "object",
+  "required": ["awp", "smp", "type", "id", "title", "authors", "version", "created", "provenance"],
+  "properties": {
+    "awp": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "smp": {
+      "type": "string",
+      "description": "Shared Memory Protocol version",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "type": {
+      "type": "string",
+      "const": "knowledge-artifact"
+    },
+    "id": {
+      "type": "string",
+      "description": "Artifact identifier (format: artifact:<slug>)",
+      "pattern": "^artifact:[a-z0-9][a-z0-9-]*$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable title"
+    },
+    "authors": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "DIDs of contributing agents"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonically increasing version number"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Agent confidence score (0.0 - 1.0)"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Categorization tags"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 creation timestamp"
+    },
+    "lastModified": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "modifiedBy": {
+      "type": "string"
+    },
+    "provenance": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["agent", "action", "timestamp"],
+        "properties": {
+          "agent": {
+            "type": "string",
+            "description": "DID of the agent"
+          },
+          "action": {
+            "type": "string",
+            "enum": ["created", "updated", "merged"]
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "message": {
+            "type": "string",
+            "description": "Commit message"
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Confidence at time of this action"
+          }
+        }
+      },
+      "description": "Append-only provenance log"
+    }
+  },
+  "additionalProperties": true
+}
