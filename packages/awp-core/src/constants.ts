@@ -45,6 +45,7 @@ export const SCHEMA_MAP: Record<string, string> = {
   operations: "operations.schema.json",
   user: "user.schema.json",
   tools: "tools.schema.json",
+  heartbeat: "heartbeat.schema.json",
   "memory-daily": "memory-daily.schema.json",
   "memory-longterm": "memory-longterm.schema.json",
 };

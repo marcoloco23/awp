@@ -132,6 +132,21 @@ export interface ToolsFrontmatter extends BaseFrontmatter {
 }
 
 /**
+ * HEARTBEAT.md frontmatter
+ */
+export interface HeartbeatFrontmatter extends BaseFrontmatter {
+  type: "heartbeat";
+  tasks?: HeartbeatTask[];
+}
+
+export interface HeartbeatTask {
+  id: string;
+  description: string;
+  intervalMinutes?: number;
+  enabled?: boolean;
+}
+
+/**
  * Union of all frontmatter types
  */
 export type AnyFrontmatter =
@@ -140,6 +155,7 @@ export type AnyFrontmatter =
   | UserFrontmatter
   | OperationsFrontmatter
   | ToolsFrontmatter
+  | HeartbeatFrontmatter
   | MemoryDailyFrontmatter
   | MemoryLongtermFrontmatter;
 

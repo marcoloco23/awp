@@ -361,7 +361,7 @@ Use pinned memories sparingly — they represent information the agent considers
 
 ## 10. Identity System
 
-### 9.1 DID Method
+### 10.1 DID Method
 
 AWP uses W3C Decentralized Identifiers. The recommended method is `did:web` for agents with web presence, or a locally-generated identifier for offline agents.
 
@@ -369,7 +369,7 @@ AWP uses W3C Decentralized Identifiers. The recommended method is `did:web` for 
 - `did:web:domain:agents:name` for web-hosted agents
 - `did:key:z6Mk...` for local/offline agents (Ed25519 key pair)
 
-### 9.2 Signed Outputs
+### 10.2 Signed Outputs
 
 Agents with DIDs can sign their outputs:
 

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://awp.dev/schemas/heartbeat.schema.json",
+  "title": "AWP Heartbeat Frontmatter",
+  "description": "Frontmatter schema for HEARTBEAT.md — periodic tasks the agent should execute",
+  "type": "object",
+  "required": ["awp", "type"],
+  "properties": {
+    "awp": {
+      "type": "string",
+      "description": "AWP specification version",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "type": {
+      "type": "string",
+      "const": "heartbeat"
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "description"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Task identifier"
+          },
+          "description": {
+            "type": "string",
+            "description": "What the agent should check or do"
+          },
+          "intervalMinutes": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Override interval for this specific task"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether this task is active"
+          }
+        }
+      },
+      "description": "Periodic tasks to execute"
+    },
+    "lastModified": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "modifiedBy": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}
