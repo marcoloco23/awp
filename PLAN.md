@@ -1,4 +1,4 @@
-# CLAWD — Coordination Infrastructure for the Agent Economy
+# AWP — Coordination Infrastructure for the Agent Economy
 
 ## Thesis
 
@@ -6,7 +6,7 @@ Build the operating system for an agent economy, not another app inside it.
 
 **The wedge:** A portable, open **Agent Workspace Protocol (AWP)** — the "package.json of agents" — that defines identity, behavior, memory, reputation, and coordination in a framework-agnostic, version-controlled, human-readable format.
 
-**Why this wins:** A2A owns transport. MCP owns tools. ACK owns payments. Nobody owns the definition of the agent itself — its persistent state, behavioral constraints, accumulated knowledge, and reputation. That's the layer below all other protocols. The clawd workspace already sketches it in markdown. We formalize it into infrastructure.
+**Why this wins:** A2A owns transport. MCP owns tools. ACK owns payments. Nobody owns the definition of the agent itself — its persistent state, behavioral constraints, accumulated knowledge, and reputation. That's the layer below all other protocols. The workspace template already sketches it in markdown. We formalize it into infrastructure.
 
 **Lock-in:** Agents accumulate memory, reputation, and provenance in AWP format. The longer they run, the more valuable the workspace becomes and the harder it is to leave. Every delegation between AWP agents pulls more into the ecosystem.
 
@@ -228,7 +228,7 @@ Humans are governors, not operators. The dashboard replaces chat as the interfac
 ### Sequence
 1. **Ship MCP server to npm** — any MCP client gets AWP workspace tools instantly. Zero framework change. They don't need to know "AWP" exists.
 2. **Ship `awp init` as standalone CLI** — replaces manual "copy these markdown files" pattern.
-3. **Dogfood on clawd** — this workspace is the reference implementation.
+3. **Dogfood internally** — the clawd workspace is the reference implementation.
 4. **Court framework authors** — CrewAI, LangGraph, AutoGen — to add AWP import/export.
 5. **Submit spec to AAIF** (Linux Foundation, where MCP + A2A live) for standardization.
 
@@ -244,13 +244,12 @@ Humans are governors, not operators. The dashboard replaces chat as the interfac
 ## Project Structure
 
 ```
-clawd/
+awp/                           # Public repo: github.com/marcoloco23/awp
   PLAN.md                      ← you are here
   package.json                 # Monorepo root (npm workspaces + Turborepo)
   turbo.json
   tsconfig.base.json
   .gitignore
-  .awp/workspace.json          # This workspace's AWP manifest
 
   spec/
     awp-spec.md                # Phase 1: Core specification ✅
@@ -260,7 +259,7 @@ clawd/
     coord/coord-spec.md        # Phase 4: Coordination Protocol
 
   packages/
-    awp-core/                  # Shared types and utilities ✅
+    awp-core/                  # Shared types, constants, schemas ✅
     awp-cli/                   # CLI tool ✅
     awp-mcp-server/            # MCP server ✅
     awp-smp/                   # Phase 2: Shared Memory library
@@ -270,16 +269,19 @@ clawd/
     awp-dashboard/             # Phase 4: Human governance dashboard
 
   templates/
-    clawd/                     # Reference implementation ✅
+    clawd/                     # Reference workspace template ✅
 
-  # Existing workspace files (with AWP frontmatter) ✅
-  IDENTITY.md
-  SOUL.md
-  USER.md
-  AGENTS.md
-  TOOLS.md
-  HEARTBEAT.md
-  canvas/index.html
+  canvas/index.html            # Dashboard canvas template
+
+clawd/                         # Private repo: personal agent workspace
+  .awp/workspace.json          # AWP manifest
+  IDENTITY.md                  # Agent identity
+  SOUL.md                      # Agent personality + values
+  USER.md                      # Human profile
+  AGENTS.md                    # Operational config
+  HEARTBEAT.md                 # Periodic tasks
+  TOOLS.md                     # Environment config
+  memory/                      # Daily logs
 ```
 
 ---

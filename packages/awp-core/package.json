@@ -19,10 +19,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/marcoloco23/clawd.git",
+    "url": "https://github.com/marcoloco23/awp.git",
     "directory": "packages/awp-core"
   },
-  "homepage": "https://github.com/marcoloco23/clawd#readme",
+  "homepage": "https://github.com/marcoloco23/awp#readme",
   "keywords": [
     "awp",
     "agent",
