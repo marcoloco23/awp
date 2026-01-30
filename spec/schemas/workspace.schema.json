@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://awp.dev/schemas/workspace.schema.json",
+  "title": "AWP Workspace Manifest",
+  "description": "Manifest file for an Agent Workspace Protocol workspace",
+  "type": "object",
+  "required": ["awp", "id", "name", "created", "agent"],
+  "properties": {
+    "awp": {
+      "type": "string",
+      "description": "AWP specification version",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "id": {
+      "type": "string",
+      "description": "Unique workspace identifier (URN format)",
+      "pattern": "^urn:awp:workspace:"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable workspace name",
+      "minLength": 1
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 creation timestamp"
+    },
+    "agent": {
+      "type": "object",
+      "required": ["identityFile"],
+      "properties": {
+        "did": {
+          "type": "string",
+          "description": "W3C DID for this agent",
+          "pattern": "^did:"
+        },
+        "identityFile": {
+          "type": "string",
+          "description": "Path to identity file relative to workspace root",
+          "default": "IDENTITY.md"
+        }
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Agent capability tags"
+    },
+    "protocols": {
+      "type": "object",
+      "properties": {
+        "a2a": { "type": "boolean" },
+        "mcp": { "type": "boolean" }
+      },
+      "description": "Supported protocol flags"
+    }
+  },
+  "additionalProperties": false
+}

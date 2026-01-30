@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://awp.dev/schemas/soul.schema.json",
+  "title": "AWP Soul Frontmatter",
+  "description": "Frontmatter schema for SOUL.md files",
+  "type": "object",
+  "required": ["awp", "type"],
+  "properties": {
+    "awp": {
+      "type": "string",
+      "description": "AWP specification version",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "type": {
+      "type": "string",
+      "const": "soul"
+    },
+    "values": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "description"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Value identifier"
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Priority rank (1 = highest)"
+          },
+          "description": {
+            "type": "string",
+            "description": "Human-readable description"
+          }
+        }
+      },
+      "description": "Ordered list of core values"
+    },
+    "boundaries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "rule", "severity"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Boundary identifier"
+          },
+          "rule": {
+            "type": "string",
+            "description": "The boundary rule"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["hard", "soft"],
+            "description": "hard = never violate, soft = use judgment"
+          }
+        }
+      },
+      "description": "Behavioral boundaries"
+    },
+    "governance": {
+      "type": "object",
+      "properties": {
+        "humanApprovalRequired": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Actions requiring human approval"
+        },
+        "autonomouslyAllowed": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Actions the agent may take freely"
+        }
+      },
+      "description": "Governance rules"
+    },
+    "lastModified": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "modifiedBy": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

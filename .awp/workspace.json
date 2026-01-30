@@ -1,0 +1,19 @@
+{
+  "awp": "0.1.0",
+  "id": "urn:awp:workspace:clawd-reference-impl",
+  "name": "clawd",
+  "created": "2026-01-30T00:00:00Z",
+  "agent": {
+    "identityFile": "IDENTITY.md"
+  },
+  "capabilities": [
+    "code-review",
+    "research",
+    "writing",
+    "coordination"
+  ],
+  "protocols": {
+    "a2a": true,
+    "mcp": true
+  }
+}

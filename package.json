@@ -1,0 +1,22 @@
+{
+  "name": "clawd",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agent Workspace Protocol — coordination infrastructure for the agent economy",
+  "license": "Apache-2.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "typecheck": "turbo typecheck"
+  },
+  "packageManager": "npm@11.4.2",
+  "devDependencies": {
+    "turbo": "^2.4.0",
+    "typescript": "^5.7.0"
+  }
+}

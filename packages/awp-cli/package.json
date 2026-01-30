@@ -1,0 +1,26 @@
+{
+  "name": "@awp/cli",
+  "version": "0.1.0",
+  "description": "CLI tool for the Agent Workspace Protocol",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "awp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@awp/core": "*",
+    "ajv": "^8.17.0",
+    "ajv-formats": "^3.0.1",
+    "commander": "^13.0.0",
+    "gray-matter": "^4.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}

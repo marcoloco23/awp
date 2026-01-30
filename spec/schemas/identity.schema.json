@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://awp.dev/schemas/identity.schema.json",
+  "title": "AWP Identity Frontmatter",
+  "description": "Frontmatter schema for IDENTITY.md files",
+  "type": "object",
+  "required": ["awp", "type", "name", "created"],
+  "properties": {
+    "awp": {
+      "type": "string",
+      "description": "AWP specification version",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "type": {
+      "type": "string",
+      "const": "identity"
+    },
+    "did": {
+      "type": "string",
+      "description": "W3C Decentralized Identifier",
+      "pattern": "^did:"
+    },
+    "name": {
+      "type": "string",
+      "description": "The agent's chosen name",
+      "minLength": 1
+    },
+    "creature": {
+      "type": "string",
+      "description": "What kind of entity"
+    },
+    "vibe": {
+      "type": "string",
+      "description": "Personality description"
+    },
+    "emoji": {
+      "type": "string",
+      "description": "Signature emoji"
+    },
+    "avatar": {
+      "type": "string",
+      "description": "Path to avatar image (workspace-relative or URL)"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "What this agent can do"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 creation timestamp"
+    },
+    "lastModified": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 last modification timestamp"
+    },
+    "modifiedBy": {
+      "type": "string",
+      "description": "DID of the modifier"
+    }
+  },
+  "additionalProperties": true
+}

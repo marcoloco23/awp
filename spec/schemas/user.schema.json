@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://awp.dev/schemas/user.schema.json",
+  "title": "AWP User Profile Frontmatter",
+  "description": "Frontmatter schema for USER.md",
+  "type": "object",
+  "required": ["awp", "type"],
+  "properties": {
+    "awp": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "type": {
+      "type": "string",
+      "const": "user"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human's name"
+    },
+    "callSign": {
+      "type": "string",
+      "description": "What to call them"
+    },
+    "pronouns": {
+      "type": "string",
+      "description": "Preferred pronouns"
+    },
+    "timezone": {
+      "type": "string",
+      "description": "IANA timezone"
+    }
+  },
+  "additionalProperties": true
+}

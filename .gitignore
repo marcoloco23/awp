@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.turbo/
+
+# AWP private keys (NEVER commit these)
+.awp/private-key.pem
+.awp/keys/
+
+# Personal workspace config (contains PII)
+USER.md
+
+# OS files
+.DS_Store
