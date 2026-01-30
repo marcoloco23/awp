@@ -1,6 +1,6 @@
 {
   "name": "@agent-workspace/cli",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "CLI for the Agent Workspace Protocol — init, validate, inspect, and manage agent workspaces",
   "license": "Apache-2.0",
   "type": "module",
@@ -37,7 +37,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@agent-workspace/core": "0.2.0",
+    "@agent-workspace/core": "0.2.1",
     "ajv": "^8.17.0",
     "ajv-formats": "^3.0.1",
     "commander": "^13.0.0",
