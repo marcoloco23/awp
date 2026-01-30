@@ -6,8 +6,16 @@ dist/
 .awp/private-key.pem
 .awp/keys/
 
-# Personal workspace config (contains PII)
+# Personal workspace files (your agent, not the protocol)
+# Use templates/clawd/ as reference examples instead
+IDENTITY.md
+SOUL.md
 USER.md
+AGENTS.md
+HEARTBEAT.md
+TOOLS.md
+.awp/workspace.json
+memory/
 
 # OS files
 .DS_Store

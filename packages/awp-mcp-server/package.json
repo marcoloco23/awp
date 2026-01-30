@@ -1,20 +1,45 @@
 {
   "name": "@awp/mcp-server",
   "version": "0.1.0",
-  "description": "MCP server exposing Agent Workspace Protocol operations",
+  "description": "MCP server exposing Agent Workspace Protocol operations — plug any AWP workspace into any MCP client",
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
     "awp-mcp-server": "dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/marcoloco23/clawd.git",
+    "directory": "packages/awp-mcp-server"
+  },
+  "homepage": "https://github.com/marcoloco23/clawd#readme",
+  "keywords": [
+    "awp",
+    "agent",
+    "workspace",
+    "protocol",
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "llm",
+    "claude",
+    "a2a"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@awp/core": "*",
+    "@awp/core": "0.1.0",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "gray-matter": "^4.0.3",
     "zod": "^4.3.6"

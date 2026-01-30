@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://awp.dev/schemas/memory-longterm.schema.json",
+  "title": "AWP Long-term Memory Frontmatter",
+  "description": "Frontmatter schema for MEMORY.md",
+  "type": "object",
+  "required": ["awp", "type"],
+  "properties": {
+    "awp": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "type": {
+      "type": "string",
+      "const": "memory-longterm"
+    },
+    "lastCompacted": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When memory was last compacted"
+    },
+    "entryCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of curated entries"
+    },
+    "pinnedCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of pinned entries (must be preserved during compaction)"
+    }
+  },
+  "additionalProperties": true
+}

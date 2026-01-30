@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://awp.dev/schemas/operations.schema.json",
+  "title": "AWP Operations Frontmatter",
+  "description": "Frontmatter schema for AGENTS.md",
+  "type": "object",
+  "required": ["awp", "type"],
+  "properties": {
+    "awp": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "type": {
+      "type": "string",
+      "const": "operations"
+    },
+    "sessionStartup": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Steps to perform at session start"
+    },
+    "heartbeat": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "intervalMinutes": { "type": "integer", "minimum": 1 },
+        "checks": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "memoryPolicy": {
+      "type": "object",
+      "properties": {
+        "dailyLogs": { "type": "boolean" },
+        "longTermCompaction": { "type": "boolean" },
+        "compactionInterval": {
+          "type": "string",
+          "enum": ["daily", "weekly", "monthly"]
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}

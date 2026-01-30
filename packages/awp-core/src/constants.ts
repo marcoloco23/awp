@@ -1,3 +1,8 @@
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
 /** Current AWP specification version */
 export const AWP_VERSION = "0.1.0";
 
@@ -37,6 +42,19 @@ export const FILE_TYPE_MAP: Record<string, string> = {
   bootstrap: "BOOTSTRAP.md",
   "memory-longterm": "MEMORY.md",
 };
+
+/**
+ * Absolute path to the schemas directory bundled with @awp/core.
+ * Works in monorepo (dev) and when installed from npm.
+ */
+export const SCHEMAS_DIR = join(__dirname, "..", "schemas");
+
+/**
+ * Resolve absolute path to a specific schema file.
+ */
+export function getSchemaPath(schemaFileName: string): string {
+  return join(SCHEMAS_DIR, schemaFileName);
+}
 
 /** Schema file mapping */
 export const SCHEMA_MAP: Record<string, string> = {

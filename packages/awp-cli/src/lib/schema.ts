@@ -1,9 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import { SCHEMA_MAP } from "@awp/core";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import { SCHEMA_MAP, getSchemaPath } from "@awp/core";
 
 // Dynamic import to handle CJS/ESM interop
 let ajvInstance: any = null;
@@ -25,16 +21,14 @@ async function getAjv(): Promise<any> {
 }
 
 /**
- * Load a schema file from the spec/schemas directory
+ * Load a schema file from @awp/core's bundled schemas
  */
 async function loadSchema(schemaFileName: string): Promise<object> {
   if (schemaCache.has(schemaFileName)) {
     return schemaCache.get(schemaFileName)!;
   }
 
-  // Resolve schema path relative to project root (4 levels up from dist/lib/)
-  const schemasDir = join(__dirname, "..", "..", "..", "..", "spec", "schemas");
-  const schemaPath = join(schemasDir, schemaFileName);
+  const schemaPath = getSchemaPath(schemaFileName);
   const raw = await readFile(schemaPath, "utf-8");
   const schema = JSON.parse(raw);
   // Strip $schema and $id fields — Ajv doesn't handle draft-2020-12 by default

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://awp.dev/schemas/tools.schema.json",
+  "title": "AWP Tools Frontmatter",
+  "description": "Frontmatter schema for TOOLS.md files — environment-specific configuration",
+  "type": "object",
+  "required": ["awp", "type"],
+  "properties": {
+    "awp": {
+      "type": "string",
+      "description": "AWP specification version",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "type": {
+      "type": "string",
+      "const": "tools"
+    },
+    "lastModified": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "modifiedBy": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

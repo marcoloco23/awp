@@ -8,6 +8,9 @@ export type {
   SoulGovernance,
   UserFrontmatter,
   OperationsFrontmatter,
+  ToolsFrontmatter,
+  HeartbeatFrontmatter,
+  HeartbeatTask,
   MemoryDailyFrontmatter,
   MemoryEntry,
   MemoryLongtermFrontmatter,
@@ -31,4 +34,6 @@ export {
   MEMORY_DIR,
   FILE_TYPE_MAP,
   SCHEMA_MAP,
+  SCHEMAS_DIR,
+  getSchemaPath,
 } from "./constants.js";

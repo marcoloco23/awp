@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://awp.dev/schemas/memory-daily.schema.json",
+  "title": "AWP Daily Memory Frontmatter",
+  "description": "Frontmatter schema for daily memory log files",
+  "type": "object",
+  "required": ["awp", "type", "date"],
+  "properties": {
+    "awp": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "type": {
+      "type": "string",
+      "const": "memory-daily"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "ISO 8601 date"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["content"],
+        "properties": {
+          "time": {
+            "type": "string",
+            "pattern": "^\\d{2}:\\d{2}$",
+            "description": "Time of entry (HH:MM)"
+          },
+          "content": {
+            "type": "string",
+            "description": "What happened"
+          },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Categorization tags"
+          },
+          "pinned": {
+            "type": "boolean",
+            "default": false,
+            "description": "Pinned entries survive compaction and must never be deleted"
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}

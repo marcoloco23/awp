@@ -35,7 +35,7 @@ server.registerTool(
   {
     title: "Read Agent Identity",
     description:
-      "Read this agent's identity (name, creature, vibe, capabilities, DID) from the AWP workspace",
+      "Read this agent's identity (name, creature, capabilities, DID) from the AWP workspace",
     inputSchema: {},
   },
   async () => {

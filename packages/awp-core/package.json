@@ -1,7 +1,7 @@
 {
   "name": "@awp/core",
   "version": "0.1.0",
-  "description": "Core types and utilities for the Agent Workspace Protocol",
+  "description": "Core types, constants, and schemas for the Agent Workspace Protocol",
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
@@ -10,12 +10,39 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./schemas/*": "./schemas/*"
+  },
+  "files": [
+    "dist",
+    "schemas"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/marcoloco23/clawd.git",
+    "directory": "packages/awp-core"
+  },
+  "homepage": "https://github.com/marcoloco23/clawd#readme",
+  "keywords": [
+    "awp",
+    "agent",
+    "workspace",
+    "protocol",
+    "ai",
+    "llm",
+    "mcp",
+    "a2a",
+    "agent-economy",
+    "coordination"
+  ],
+  "engines": {
+    "node": ">=18"
   },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
   },
   "devDependencies": {
     "typescript": "^5.7.0"
