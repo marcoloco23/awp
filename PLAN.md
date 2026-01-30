@@ -271,8 +271,6 @@ awp/                           # Public repo: github.com/marcoloco23/awp
   templates/
     clawd/                     # Reference workspace template ✅
 
-  canvas/index.html            # Dashboard canvas template
-
 clawd/                         # Private repo: personal agent workspace
   .awp/workspace.json          # AWP manifest
   IDENTITY.md                  # Agent identity
