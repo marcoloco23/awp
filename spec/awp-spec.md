@@ -32,7 +32,7 @@ A workspace is a directory containing well-known files at predictable paths:
   USER.md                   # OPTIONAL — human profile
   TOOLS.md                  # OPTIONAL — environment-specific configuration
   HEARTBEAT.md              # OPTIONAL — periodic task definitions
-  BOOTSTRAP.md              # OPTIONAL — first-run onboarding (deleted after use)
+  BOOTSTRAP.md              # OPTIONAL — first-run onboarding (see §8.1 Lifecycle)
   MEMORY.md                 # OPTIONAL — curated long-term memory
   memory/                   # OPTIONAL — daily memory logs
     YYYY-MM-DD.md           # Daily log entries
@@ -104,7 +104,9 @@ All workspace files SHOULD include:
 
 ## 4. Identity (`IDENTITY.md`)
 
-The identity file defines who the agent is. It is REQUIRED.
+The identity file defines **factual attributes** of the agent — what it is, what it's called, what it can do. It is REQUIRED.
+
+> **IDENTITY vs SOUL:** IDENTITY contains facts (name, creature type, capabilities, avatar). SOUL contains personality and values (vibe, behavioral constraints, governance). If it answers "what are you?" it belongs in IDENTITY. If it answers "who are you?" it belongs in SOUL.
 
 ### 4.1 Frontmatter Schema
 
@@ -115,7 +117,6 @@ type: "identity"
 did: "did:web:example.com:agents:my-agent"
 name: "Clawd"
 creature: "familiar"
-vibe: "sharp, warm, slightly chaotic"
 emoji: "🐾"
 avatar: "avatars/clawd.png"
 capabilities:
@@ -130,8 +131,7 @@ lastModified: "2026-01-30T00:00:00Z"
 **Fields:**
 - `did` (string, OPTIONAL): W3C Decentralized Identifier. Generated via `awp identity generate`.
 - `name` (string, REQUIRED): The agent's chosen name
-- `creature` (string, OPTIONAL): What kind of entity (AI assistant, familiar, etc.)
-- `vibe` (string, OPTIONAL): Personality description
+- `creature` (string, OPTIONAL): What kind of entity — factual descriptor (AI assistant, familiar, etc.)
 - `emoji` (string, OPTIONAL): Signature emoji
 - `avatar` (string, OPTIONAL): Path to avatar image (workspace-relative or URL)
 - `capabilities` (string[], OPTIONAL): What this agent can do
@@ -163,7 +163,9 @@ An AWP identity can be exported as an A2A-compatible Agent Card:
 
 ## 5. Soul (`SOUL.md`)
 
-The soul file defines the agent's behavioral constraints, values, and boundaries. It is REQUIRED.
+The soul file defines the agent's **personality, values, and behavioral constraints**. It is REQUIRED.
+
+> **IDENTITY vs SOUL:** IDENTITY is the business card. SOUL is the character sheet. An agent could change its soul (evolve its personality, update its values) while keeping its identity stable.
 
 ### 5.1 Frontmatter Schema
 
@@ -171,6 +173,7 @@ The soul file defines the agent's behavioral constraints, values, and boundaries
 ---
 awp: "0.1.0"
 type: "soul"
+vibe: "sharp, warm, slightly chaotic"
 values:
   - id: "genuine-helpfulness"
     priority: 1
@@ -212,6 +215,7 @@ lastModified: "2026-01-30T00:00:00Z"
 ```
 
 **Fields:**
+- `vibe` (string, OPTIONAL): Personality description — how the agent comes across
 - `values` (array, OPTIONAL): Ordered list of core values
   - `id` (string): Identifier
   - `priority` (number): Priority rank (1 = highest)
@@ -301,7 +305,61 @@ memoryPolicy:
 ---
 ```
 
-## 9. Identity System
+### 8.1 Bootstrap Lifecycle (`BOOTSTRAP.md`)
+
+`BOOTSTRAP.md` is a **single-use onboarding file**. It contains first-run instructions for an agent entering a new workspace.
+
+**Lifecycle:**
+1. When an agent starts a session and `BOOTSTRAP.md` exists, it MUST execute the bootstrap instructions before any other work.
+2. After successful execution, the agent MUST delete `BOOTSTRAP.md`.
+3. The agent SHOULD log the bootstrap completion in its daily memory.
+4. If bootstrap fails, the agent MUST keep the file and report the failure to the human.
+
+> `BOOTSTRAP.md` is the only workspace file that is intentionally ephemeral. All other files persist across sessions.
+
+### 8.2 Environment Config (`TOOLS.md`)
+
+`TOOLS.md` contains environment-specific configuration — device names, SSH hosts, API endpoints, speaker labels, and other local context that helps the agent operate in its physical/digital environment.
+
+```yaml
+---
+awp: "0.1.0"
+type: "tools"
+---
+```
+
+Unlike skills (which define *how* tools work), `TOOLS.md` defines *your* specifics — what's unique to the current setup. This separation means skills can be shared without leaking infrastructure.
+
+## 9. Memory Heuristics
+
+### 9.1 When to Write What
+
+| Write to... | When... | Examples |
+|-------------|---------|---------|
+| `memory/YYYY-MM-DD.md` (daily) | Something happened worth noting | Conversations, decisions, tasks completed, errors encountered |
+| `MEMORY.md` (longterm) | A pattern or insight has been distilled from daily logs | User preferences, project conventions, learned heuristics, relationship context |
+
+**Rules of thumb:**
+- **Daily logs are raw.** Write liberally. Include timestamps. Tag entries for searchability. Think of them as a work journal.
+- **Longterm memory is curated.** Only promote entries that will still be useful in 30 days. Think of it as a reference card.
+- **Compaction is lossy on purpose.** When compacting daily logs into longterm memory, discard the mundane. Keep the insights.
+- **When in doubt, log daily.** It's easier to promote a daily entry to longterm than to reconstruct a lost memory.
+
+### 9.2 Pinned Memories
+
+Memory entries can be marked as `pinned: true` to prevent compaction or deletion. Pinned entries survive all cleanup operations and MUST be preserved during any memory compaction process.
+
+```yaml
+entries:
+  - time: "14:00"
+    content: "User's preferred coding style: functional, no classes"
+    tags: ["preference", "coding"]
+    pinned: true
+```
+
+Use pinned memories sparingly — they represent information the agent considers permanently important.
+
+## 10. Identity System
 
 ### 9.1 DID Method
 
@@ -323,9 +381,9 @@ signature:
   timestamp: "2026-01-30T10:30:00Z"
 ```
 
-## 10. Interoperability
+## 11. Interoperability
 
-### 10.1 MCP Integration
+### 11.1 MCP Integration
 
 AWP workspaces expose operations as MCP tools:
 
@@ -338,15 +396,15 @@ AWP workspaces expose operations as MCP tools:
 | `awp_read_user` | Read human profile |
 | `awp_workspace_status` | Get workspace health |
 
-### 10.2 A2A Integration
+### 11.2 A2A Integration
 
 AWP identities export as A2A Agent Cards for discovery. AWP workspaces can receive A2A tasks and route them through the agent's governance rules (SOUL.md boundaries).
 
-### 10.3 ACK Integration
+### 11.3 ACK Integration
 
 AWP agent DIDs are compatible with ACK-ID for payment identity. An AWP agent can attach ACK payment capabilities to its Agent Card export.
 
-## 11. Validation
+## 12. Validation
 
 A valid AWP workspace MUST:
 1. Contain `.awp/workspace.json` with valid manifest
@@ -360,7 +418,7 @@ A valid AWP workspace SHOULD:
 - Have agent DID generated
 - Have memory directory initialized
 
-## 12. Versioning
+## 13. Versioning
 
 This specification follows Semantic Versioning. Breaking changes increment the major version. The `awp` field in frontmatter indicates which spec version the file conforms to.
 

@@ -15,6 +15,10 @@
       "type": "string",
       "const": "soul"
     },
+    "vibe": {
+      "type": "string",
+      "description": "Personality description — how the agent comes across"
+    },
     "values": {
       "type": "array",
       "items": {

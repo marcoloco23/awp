@@ -35,7 +35,6 @@ export interface IdentityFrontmatter extends BaseFrontmatter {
   did?: string;
   name: string;
   creature?: string;
-  vibe?: string;
   emoji?: string;
   avatar?: string;
   capabilities?: string[];
@@ -47,6 +46,7 @@ export interface IdentityFrontmatter extends BaseFrontmatter {
  */
 export interface SoulFrontmatter extends BaseFrontmatter {
   type: "soul";
+  vibe?: string;
   values?: SoulValue[];
   boundaries?: SoulBoundary[];
   governance?: SoulGovernance;
@@ -111,6 +111,7 @@ export interface MemoryEntry {
   time?: string;
   content: string;
   tags?: string[];
+  pinned?: boolean;
 }
 
 /**
@@ -120,6 +121,14 @@ export interface MemoryLongtermFrontmatter extends BaseFrontmatter {
   type: "memory-longterm";
   lastCompacted?: string;
   entryCount?: number;
+  pinnedCount?: number;
+}
+
+/**
+ * TOOLS.md frontmatter
+ */
+export interface ToolsFrontmatter extends BaseFrontmatter {
+  type: "tools";
 }
 
 /**
@@ -130,6 +139,7 @@ export type AnyFrontmatter =
   | SoulFrontmatter
   | UserFrontmatter
   | OperationsFrontmatter
+  | ToolsFrontmatter
   | MemoryDailyFrontmatter
   | MemoryLongtermFrontmatter;
 

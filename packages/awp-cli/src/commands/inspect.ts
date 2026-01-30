@@ -2,7 +2,7 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { findWorkspaceRoot, inspectWorkspace } from "../lib/workspace.js";
 import { parseWorkspaceFile } from "../lib/frontmatter.js";
-import type { IdentityFrontmatter } from "@awp/core";
+import type { IdentityFrontmatter, SoulFrontmatter } from "@awp/core";
 
 export async function inspectCommand(): Promise<void> {
   const root = await findWorkspaceRoot();
@@ -38,13 +38,28 @@ export async function inspectCommand(): Promise<void> {
     console.log("-----");
     console.log(`  Name:     ${fm.name || "(not set)"}`);
     if (fm.creature) console.log(`  Creature: ${fm.creature}`);
-    if (fm.vibe) console.log(`  Vibe:     ${fm.vibe}`);
     if (fm.emoji) console.log(`  Emoji:    ${fm.emoji}`);
     if (fm.capabilities?.length) {
       console.log(`  Skills:   ${fm.capabilities.join(", ")}`);
     }
   } catch {
     console.log("\n  (Could not read IDENTITY.md)");
+  }
+
+  // Show soul summary
+  try {
+    const soulPath = join(root, "SOUL.md");
+    const soul = await parseWorkspaceFile<SoulFrontmatter>(soulPath);
+    const sfm = soul.frontmatter;
+    console.log("");
+    console.log("Soul");
+    console.log("----");
+    if (sfm.vibe) console.log(`  Vibe:       ${sfm.vibe}`);
+    if (sfm.values?.length) console.log(`  Values:     ${sfm.values.length} defined`);
+    if (sfm.boundaries?.length) console.log(`  Boundaries: ${sfm.boundaries.length} defined`);
+    if (sfm.governance) console.log(`  Governance: configured`);
+  } catch {
+    console.log("\n  (Could not read SOUL.md)");
   }
 
   // Show files

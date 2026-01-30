@@ -27,11 +27,7 @@
     },
     "creature": {
       "type": "string",
-      "description": "What kind of entity"
-    },
-    "vibe": {
-      "type": "string",
-      "description": "Personality description"
+      "description": "What kind of entity (factual descriptor)"
     },
     "emoji": {
       "type": "string",

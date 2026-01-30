@@ -23,6 +23,11 @@
       "type": "integer",
       "minimum": 0,
       "description": "Number of curated entries"
+    },
+    "pinnedCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of pinned entries (must be preserved during compaction)"
     }
   },
   "additionalProperties": true

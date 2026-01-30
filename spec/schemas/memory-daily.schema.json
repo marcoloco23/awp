@@ -38,6 +38,11 @@
             "type": "array",
             "items": { "type": "string" },
             "description": "Categorization tags"
+          },
+          "pinned": {
+            "type": "boolean",
+            "default": false,
+            "description": "Pinned entries survive compaction and must never be deleted"
           }
         }
       }

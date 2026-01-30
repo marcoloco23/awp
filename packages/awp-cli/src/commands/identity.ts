@@ -4,7 +4,7 @@ import { generateKeyPairSync, createPublicKey } from "node:crypto";
 import { AWP_VERSION, MANIFEST_PATH, type AgentCard } from "@awp/core";
 import { findWorkspaceRoot, loadManifest } from "../lib/workspace.js";
 import { parseWorkspaceFile, writeWorkspaceFile } from "../lib/frontmatter.js";
-import type { IdentityFrontmatter } from "@awp/core";
+import type { IdentityFrontmatter, SoulFrontmatter } from "@awp/core";
 
 /**
  * Generate a did:key identifier from an Ed25519 public key
@@ -109,9 +109,19 @@ export async function identityExportCommand(
     return;
   }
 
+  // Read SOUL.md for vibe (personality description used as Agent Card description)
+  let vibe: string | undefined;
+  try {
+    const soulPath = join(root, "SOUL.md");
+    const soulFile = await parseWorkspaceFile<SoulFrontmatter>(soulPath);
+    vibe = soulFile.frontmatter.vibe;
+  } catch {
+    // SOUL.md is optional for card export
+  }
+
   const card: AgentCard = {
     name: identity.name,
-    description: identity.vibe || undefined,
+    description: vibe || undefined,
     capabilities: {
       streaming: false,
       pushNotifications: false,
