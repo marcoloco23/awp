@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
-import { AWP_VERSION } from "@awp/core";
+import { AWP_VERSION } from "@agent-workspace/core";
 import { initCommand } from "./commands/init.js";
 import { validateCommand } from "./commands/validate.js";
 import { inspectCommand } from "./commands/inspect.js";

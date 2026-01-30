@@ -44,7 +44,7 @@ export const FILE_TYPE_MAP: Record<string, string> = {
 };
 
 /**
- * Absolute path to the schemas directory bundled with @awp/core.
+ * Absolute path to the schemas directory bundled with @agent-workspace/core.
  * Works in monorepo (dev) and when installed from npm.
  */
 export const SCHEMAS_DIR = join(__dirname, "..", "schemas");

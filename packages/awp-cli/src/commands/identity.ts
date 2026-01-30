@@ -1,10 +1,10 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { generateKeyPairSync, createPublicKey } from "node:crypto";
-import { AWP_VERSION, MANIFEST_PATH, type AgentCard } from "@awp/core";
+import { AWP_VERSION, MANIFEST_PATH, type AgentCard } from "@agent-workspace/core";
 import { findWorkspaceRoot, loadManifest } from "../lib/workspace.js";
 import { parseWorkspaceFile, writeWorkspaceFile } from "../lib/frontmatter.js";
-import type { IdentityFrontmatter, SoulFrontmatter } from "@awp/core";
+import type { IdentityFrontmatter, SoulFrontmatter } from "@agent-workspace/core";
 
 /**
  * Generate a did:key identifier from an Ed25519 public key

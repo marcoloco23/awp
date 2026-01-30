@@ -43,9 +43,9 @@ AWP is complementary to all existing protocols, competitive with none. It sits b
 - `spec/schemas/` — 7 JSON Schemas (workspace, identity, soul, user, operations, memory-daily, memory-longterm)
 
 ### Packages (TypeScript monorepo, all build clean)
-- **@awp/core** — Shared types and constants
-- **@awp/cli** — CLI with 7 commands: `init`, `validate`, `inspect`, `identity generate`, `identity export`, `memory log`, `memory search`
-- **@awp/mcp-server** — MCP server exposing 6 tools: `awp_read_identity`, `awp_read_soul`, `awp_read_user`, `awp_read_memory`, `awp_write_memory`, `awp_workspace_status`
+- **@agent-workspace/core** — Shared types and constants
+- **@agent-workspace/cli** — CLI with 7 commands: `init`, `validate`, `inspect`, `identity generate`, `identity export`, `memory log`, `memory search`
+- **@agent-workspace/mcp-server** — MCP server exposing 6 tools: `awp_read_identity`, `awp_read_soul`, `awp_read_user`, `awp_read_memory`, `awp_write_memory`, `awp_workspace_status`
 
 ### Workspace Integration
 - All root files (IDENTITY.md, SOUL.md, USER.md, AGENTS.md) have AWP frontmatter

@@ -2,7 +2,7 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { findWorkspaceRoot, inspectWorkspace } from "../lib/workspace.js";
 import { parseWorkspaceFile } from "../lib/frontmatter.js";
-import type { IdentityFrontmatter, SoulFrontmatter } from "@awp/core";
+import type { IdentityFrontmatter, SoulFrontmatter } from "@agent-workspace/core";
 
 export async function inspectCommand(): Promise<void> {
   const root = await findWorkspaceRoot();

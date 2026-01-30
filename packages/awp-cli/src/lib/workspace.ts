@@ -6,7 +6,7 @@ import {
   OPTIONAL_FILES,
   AWP_VERSION,
   type WorkspaceManifest,
-} from "@awp/core";
+} from "@agent-workspace/core";
 import { parseWorkspaceFile } from "./frontmatter.js";
 
 export interface WorkspaceInfo {

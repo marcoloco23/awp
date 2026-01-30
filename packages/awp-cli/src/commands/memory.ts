@@ -1,9 +1,9 @@
 import { readFile, writeFile, readdir, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { AWP_VERSION, MEMORY_DIR } from "@awp/core";
+import { AWP_VERSION, MEMORY_DIR } from "@agent-workspace/core";
 import { findWorkspaceRoot } from "../lib/workspace.js";
 import { parseWorkspaceFile, writeWorkspaceFile } from "../lib/frontmatter.js";
-import type { MemoryDailyFrontmatter, MemoryEntry } from "@awp/core";
+import type { MemoryDailyFrontmatter, MemoryEntry } from "@agent-workspace/core";
 
 function todayDate(): string {
   return new Date().toISOString().split("T")[0];

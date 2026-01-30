@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { AWP_VERSION, MANIFEST_PATH } from "@awp/core";
+import { AWP_VERSION, MANIFEST_PATH } from "@agent-workspace/core";
 import { createDefaultManifest } from "../lib/workspace.js";
 
 const IDENTITY_TEMPLATE = `---

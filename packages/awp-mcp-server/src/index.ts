@@ -6,7 +6,7 @@ import * as z from "zod";
 import { readFile, writeFile, readdir, mkdir, access } from "node:fs/promises";
 import { join } from "node:path";
 import matter from "gray-matter";
-import { AWP_VERSION, MEMORY_DIR } from "@awp/core";
+import { AWP_VERSION, MEMORY_DIR } from "@agent-workspace/core";
 
 const server = new McpServer({
   name: "awp-workspace",

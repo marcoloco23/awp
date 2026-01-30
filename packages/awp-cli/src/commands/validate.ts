@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { REQUIRED_FILES, ALL_WORKSPACE_FILES } from "@awp/core";
+import { REQUIRED_FILES, ALL_WORKSPACE_FILES } from "@agent-workspace/core";
 import {
   findWorkspaceRoot,
   loadManifest,

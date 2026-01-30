@@ -1,6 +1,6 @@
 import matter from "gray-matter";
 import { readFile, writeFile } from "node:fs/promises";
-import type { BaseFrontmatter, WorkspaceFile } from "@awp/core";
+import type { BaseFrontmatter, WorkspaceFile } from "@agent-workspace/core";
 
 /**
  * Parse a dual-format workspace file (YAML frontmatter + Markdown body)

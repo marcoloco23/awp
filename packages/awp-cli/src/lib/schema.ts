@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { SCHEMA_MAP, getSchemaPath } from "@awp/core";
+import { SCHEMA_MAP, getSchemaPath } from "@agent-workspace/core";
 
 // Dynamic import to handle CJS/ESM interop
 let ajvInstance: any = null;
@@ -21,7 +21,7 @@ async function getAjv(): Promise<any> {
 }
 
 /**
- * Load a schema file from @awp/core's bundled schemas
+ * Load a schema file from @agent-workspace/core's bundled schemas
  */
 async function loadSchema(schemaFileName: string): Promise<object> {
   if (schemaCache.has(schemaFileName)) {

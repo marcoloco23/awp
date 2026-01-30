@@ -1,5 +1,5 @@
 {
-  "name": "@awp/core",
+  "name": "@agent-workspace/core",
   "version": "0.1.0",
   "description": "Core types, constants, and schemas for the Agent Workspace Protocol",
   "license": "Apache-2.0",
