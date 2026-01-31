@@ -55,7 +55,16 @@ import {
   experimentCycleCommand,
   experimentListCommand,
   experimentShowCommand,
+  experimentCompareCommand,
+  societyPauseCommand,
+  societyArchiveCommand,
+  societyResumeCommand,
 } from "./commands/experiment.js";
+import {
+  manifestoValidateCommand,
+  manifestoShowCommand,
+  manifestoDiffCommand,
+} from "./commands/manifesto.js";
 
 const program = new Command();
 
@@ -425,5 +434,60 @@ experiment
   .description("Show society details")
   .argument("<society>", "Society ID")
   .action(experimentShowCommand);
+
+experiment
+  .command("compare")
+  .description("Compare two experiment results")
+  .argument("<exp1>", "First experiment (society ID or path to results JSON)")
+  .argument("<exp2>", "Second experiment (society ID or path to results JSON)")
+  .option("--metric <metric>", "Filter comparison to a specific metric")
+  .action(experimentCompareCommand);
+
+// awp manifesto
+const manifesto = program
+  .command("manifesto")
+  .description("Manifesto operations — validate, view, and compare manifestos");
+
+manifesto
+  .command("validate")
+  .description("Validate a manifesto file against the schema")
+  .argument("<path>", "Path to manifesto file")
+  .action(manifestoValidateCommand);
+
+manifesto
+  .command("show")
+  .description("Display manifesto configuration")
+  .argument("<path>", "Path to manifesto file")
+  .action(manifestoShowCommand);
+
+manifesto
+  .command("diff")
+  .description("Compare two manifestos side-by-side")
+  .argument("<path1>", "Path to first manifesto")
+  .argument("<path2>", "Path to second manifesto")
+  .action(manifestoDiffCommand);
+
+// awp society (lifecycle commands separate from experiment society create)
+const society = program
+  .command("society")
+  .description("Society lifecycle operations — pause, resume, archive");
+
+society
+  .command("pause")
+  .description("Pause a society (prevents further cycles)")
+  .argument("<id>", "Society ID")
+  .action(societyPauseCommand);
+
+society
+  .command("archive")
+  .description("Archive a society (mark as completed)")
+  .argument("<id>", "Society ID")
+  .action(societyArchiveCommand);
+
+society
+  .command("resume")
+  .description("Resume a paused society")
+  .argument("<id>", "Society ID")
+  .action(societyResumeCommand);
 
 program.parse();

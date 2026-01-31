@@ -257,6 +257,30 @@ Initial reputation profile for experiment participant.
     config.status = "archived";
     await this.updateSociety(config);
   }
+
+  /**
+   * Pause a society (prevents further cycles from running).
+   */
+  async pauseSociety(id: string): Promise<void> {
+    const config = await this.loadSociety(id);
+    if (config.status === "archived") {
+      throw new Error("Cannot pause archived society");
+    }
+    config.status = "paused";
+    await this.updateSociety(config);
+  }
+
+  /**
+   * Resume a paused society (sets status back to active).
+   */
+  async resumeSociety(id: string): Promise<void> {
+    const config = await this.loadSociety(id);
+    if (config.status !== "paused") {
+      throw new Error("Can only resume paused societies");
+    }
+    config.status = "active";
+    await this.updateSociety(config);
+  }
 }
 
 /**

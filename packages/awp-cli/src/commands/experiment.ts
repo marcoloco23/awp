@@ -4,8 +4,9 @@
  * Commands for creating societies, running experiments, and comparing results.
  */
 
-import { resolve } from "node:path";
-import { readFile } from "node:fs/promises";
+import { resolve, join } from "node:path";
+import { readFile, readdir } from "node:fs/promises";
+import type { ExperimentResult } from "@agent-workspace/agent";
 
 /**
  * awp experiment society create --manifesto <path> --agents <n> [--seed <n>]
@@ -211,8 +212,6 @@ export async function experimentListCommand(): Promise<void> {
  */
 export async function experimentShowCommand(societyId: string): Promise<void> {
   const { SocietyManager } = await import("@agent-workspace/agent");
-  const { readdir } = await import("node:fs/promises");
-  const { join } = await import("node:path");
 
   try {
     const manager = new SocietyManager("societies");
@@ -254,6 +253,256 @@ export async function experimentShowCommand(societyId: string): Promise<void> {
     }
   } catch (error) {
     console.error("Error showing society:", error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Society Lifecycle Commands
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * awp society pause <id>
+ */
+export async function societyPauseCommand(societyId: string): Promise<void> {
+  const { SocietyManager } = await import("@agent-workspace/agent");
+
+  try {
+    const manager = new SocietyManager("societies");
+    await manager.pauseSociety(societyId);
+    console.log(`Society paused: ${societyId}`);
+  } catch (error) {
+    console.error("Error pausing society:", error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
+/**
+ * awp society archive <id>
+ */
+export async function societyArchiveCommand(societyId: string): Promise<void> {
+  const { SocietyManager } = await import("@agent-workspace/agent");
+
+  try {
+    const manager = new SocietyManager("societies");
+    await manager.archiveSociety(societyId);
+    console.log(`Society archived: ${societyId}`);
+  } catch (error) {
+    console.error("Error archiving society:", error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
+/**
+ * awp society resume <id>
+ */
+export async function societyResumeCommand(societyId: string): Promise<void> {
+  const { SocietyManager } = await import("@agent-workspace/agent");
+
+  try {
+    const manager = new SocietyManager("societies");
+    await manager.resumeSociety(societyId);
+    console.log(`Society resumed: ${societyId}`);
+  } catch (error) {
+    console.error("Error resuming society:", error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Experiment Comparison
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Load experiment result from a path (can be full path or society:experiment format)
+ */
+async function loadExperimentResult(pathOrId: string): Promise<ExperimentResult> {
+  let fullPath: string;
+
+  if (pathOrId.includes(":")) {
+    // Format: society-id:experiment-id
+    const [societyId, expId] = pathOrId.split(":");
+    fullPath = join("societies", societyId, "metrics", `${expId}.json`);
+  } else if (pathOrId.endsWith(".json")) {
+    // Full path to JSON file
+    fullPath = resolve(pathOrId);
+  } else {
+    // Assume it's a society ID - find the latest experiment
+    const metricsDir = join("societies", pathOrId, "metrics");
+    const files = await readdir(metricsDir);
+    const resultFiles = files.filter((f) => f.endsWith(".json")).sort();
+    if (resultFiles.length === 0) {
+      throw new Error(`No experiment results found for society: ${pathOrId}`);
+    }
+    fullPath = join(metricsDir, resultFiles[resultFiles.length - 1]);
+  }
+
+  const raw = await readFile(fullPath, "utf-8");
+  return JSON.parse(raw) as ExperimentResult;
+}
+
+/**
+ * Compute trust stability from reputation changes
+ */
+function computeTrustStability(result: ExperimentResult): number {
+  const deltas: number[] = [];
+  for (const cycle of result.cycles) {
+    for (const change of cycle.reputationChanges) {
+      deltas.push(Math.abs(change.delta));
+    }
+  }
+  if (deltas.length === 0) return 1.0;
+  const variance = deltas.reduce((sum, d) => sum + d * d, 0) / deltas.length;
+  return Math.max(0, 1 - variance);
+}
+
+/**
+ * Compute average final reputation across all agents
+ */
+function computeAvgFinalReputation(result: ExperimentResult): number {
+  const scores = Object.values(result.finalReputations).map((r) => r.overallScore);
+  if (scores.length === 0) return 0;
+  return scores.reduce((a, b) => a + b, 0) / scores.length;
+}
+
+/**
+ * awp experiment compare <exp1> <exp2> [--metric <metric>]
+ */
+export async function experimentCompareCommand(
+  exp1: string,
+  exp2: string,
+  options: { metric?: string }
+): Promise<void> {
+  try {
+    const result1 = await loadExperimentResult(exp1);
+    const result2 = await loadExperimentResult(exp2);
+
+    const name1 = result1.societyId.substring(0, 20);
+    const name2 = result2.societyId.substring(0, 20);
+
+    console.log("═══════════════════════════════════════════════════════════════════════════");
+    console.log(`  COMPARING EXPERIMENTS`);
+    console.log("═══════════════════════════════════════════════════════════════════════════");
+    console.log();
+    console.log(`  A: ${result1.experimentId}`);
+    console.log(`  B: ${result2.experimentId}`);
+    console.log();
+
+    // Metrics to compare
+    type MetricDef = {
+      name: string;
+      getValue: (r: ExperimentResult) => number;
+      format: (v: number) => string;
+      higherIsBetter: boolean;
+    };
+
+    const metrics: MetricDef[] = [
+      {
+        name: "Success Rate",
+        getValue: (r) => r.aggregateMetrics.overallSuccessRate,
+        format: (v) => `${(v * 100).toFixed(1)}%`,
+        higherIsBetter: true,
+      },
+      {
+        name: "Total Tasks",
+        getValue: (r) => r.aggregateMetrics.totalTasks,
+        format: (v) => v.toString(),
+        higherIsBetter: true,
+      },
+      {
+        name: "Total Tokens",
+        getValue: (r) => r.aggregateMetrics.totalTokens,
+        format: (v) => v.toLocaleString(),
+        higherIsBetter: false,
+      },
+      {
+        name: "Duration (s)",
+        getValue: (r) => r.aggregateMetrics.totalDurationMs / 1000,
+        format: (v) => v.toFixed(1),
+        higherIsBetter: false,
+      },
+      {
+        name: "Trust Stability",
+        getValue: (r) => computeTrustStability(r),
+        format: (v) => v.toFixed(3),
+        higherIsBetter: true,
+      },
+      {
+        name: "Avg Reputation",
+        getValue: (r) => computeAvgFinalReputation(r),
+        format: (v) => v.toFixed(3),
+        higherIsBetter: true,
+      },
+      {
+        name: "Cycles",
+        getValue: (r) => r.totalCycles,
+        format: (v) => v.toString(),
+        higherIsBetter: true,
+      },
+    ];
+
+    // Filter by specific metric if requested
+    const filteredMetrics = options.metric
+      ? metrics.filter((m) => m.name.toLowerCase().includes(options.metric!.toLowerCase()))
+      : metrics;
+
+    if (filteredMetrics.length === 0) {
+      console.error(`No metrics found matching: ${options.metric}`);
+      console.log("Available metrics:", metrics.map((m) => m.name).join(", "));
+      process.exit(1);
+    }
+
+    // Print comparison table
+    console.log(
+      `${"Metric".padEnd(20)} | ${"A".padEnd(12)} | ${"B".padEnd(12)} | ${"Delta".padEnd(12)} | Winner`
+    );
+    console.log(
+      `${"-".repeat(20)}-+-${"-".repeat(12)}-+-${"-".repeat(12)}-+-${"-".repeat(12)}-+-------`
+    );
+
+    for (const metric of filteredMetrics) {
+      const v1 = metric.getValue(result1);
+      const v2 = metric.getValue(result2);
+      const delta = v2 - v1;
+
+      let winner = "-";
+      if (Math.abs(delta) > 0.001) {
+        if (metric.higherIsBetter) {
+          winner = delta > 0 ? "B" : "A";
+        } else {
+          winner = delta < 0 ? "B" : "A";
+        }
+      }
+
+      const deltaStr = delta > 0 ? `+${metric.format(delta)}` : metric.format(delta);
+
+      console.log(
+        `${metric.name.padEnd(20)} | ${metric.format(v1).padEnd(12)} | ${metric.format(v2).padEnd(12)} | ${deltaStr.padEnd(12)} | ${winner}`
+      );
+    }
+
+    console.log();
+    console.log("═══════════════════════════════════════════════════════════════════════════");
+
+    // Success criteria comparison
+    if (result1.successCriteriaResults.length > 0 || result2.successCriteriaResults.length > 0) {
+      console.log();
+      console.log("Success Criteria:");
+      const allCriteria = new Set([
+        ...result1.successCriteriaResults.map((c) => c.criterionId),
+        ...result2.successCriteriaResults.map((c) => c.criterionId),
+      ]);
+
+      for (const criterionId of allCriteria) {
+        const c1 = result1.successCriteriaResults.find((c) => c.criterionId === criterionId);
+        const c2 = result2.successCriteriaResults.find((c) => c.criterionId === criterionId);
+        const met1 = c1?.met ? "✓" : "✗";
+        const met2 = c2?.met ? "✓" : "✗";
+        console.log(`  ${criterionId.padEnd(30)} A: ${met1}  B: ${met2}`);
+      }
+    }
+  } catch (error) {
+    console.error("Error comparing experiments:", error instanceof Error ? error.message : error);
     process.exit(1);
   }
 }
