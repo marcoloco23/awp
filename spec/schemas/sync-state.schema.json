@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://awp.dev/schemas/sync-state.schema.json",
+  "title": "AWP Sync State",
+  "description": "Schema for .awp/sync/state/<remote>.json — per-remote sync watermarks",
+  "type": "object",
+  "required": ["version", "remote", "lastSync", "artifacts", "signals"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "remote": {
+      "type": "string",
+      "description": "Remote name this state tracks"
+    },
+    "lastSync": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of last sync operation"
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["localVersionAtSync", "remoteVersionAtSync", "lastSyncedAt"],
+        "properties": {
+          "localVersionAtSync": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Local artifact version at time of last sync"
+          },
+          "remoteVersionAtSync": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Remote artifact version at time of last sync"
+          },
+          "lastSyncedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp of last sync for this artifact"
+          }
+        }
+      },
+      "description": "Per-artifact sync watermarks"
+    },
+    "signals": {
+      "type": "object",
+      "required": ["lastSyncedTimestamp", "signalCount"],
+      "properties": {
+        "lastSyncedTimestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of last synced reputation signal"
+        },
+        "signalCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of signals synced"
+        }
+      }
+    }
+  }
+}

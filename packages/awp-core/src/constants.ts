@@ -51,6 +51,18 @@ export const PROJECTS_DIR = "projects";
 /** Swarms directory */
 export const SWARMS_DIR = "swarms";
 
+/** Sync configuration directory */
+export const SYNC_DIR = ".awp/sync";
+
+/** Sync remotes registry file */
+export const SYNC_REMOTES_FILE = ".awp/sync/remotes.json";
+
+/** Sync state directory (per-remote watermarks) */
+export const SYNC_STATE_DIR = ".awp/sync/state";
+
+/** Sync conflicts directory */
+export const SYNC_CONFLICTS_DIR = ".awp/sync/conflicts";
+
 /** File type to filename mapping */
 export const FILE_TYPE_MAP: Record<string, string> = {
   identity: "IDENTITY.md",
@@ -97,6 +109,8 @@ export const SCHEMA_MAP: Record<string, string> = {
   project: "project.schema.json",
   task: "task.schema.json",
   swarm: "swarm.schema.json",
+  "sync-remote": "sync-remote.schema.json",
+  "sync-state": "sync-state.schema.json",
 };
 
 // ============================================================================

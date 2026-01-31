@@ -71,6 +71,19 @@ import {
   schemaValuesCommand,
   schemaExampleCommand,
 } from "./commands/schema.js";
+import {
+  syncRemoteAddCommand,
+  syncRemoteListCommand,
+  syncRemoteRemoveCommand,
+  syncPullCommand,
+  syncPushCommand,
+  syncDiffCommand,
+  syncStatusCommand,
+  syncPullSignalsCommand,
+  syncPushSignalsCommand,
+  syncConflictsCommand,
+  syncResolveCommand,
+} from "./commands/sync.js";
 
 const program = new Command();
 
@@ -522,5 +535,81 @@ society
   .description("Resume a paused society")
   .argument("<id>", "Society ID")
   .action(societyResumeCommand);
+
+// awp sync
+const sync = program
+  .command("sync")
+  .description("Workspace synchronization — pull/push artifacts and signals between workspaces");
+
+const syncRemote = sync.command("remote").description("Manage remote workspaces");
+
+syncRemote
+  .command("add")
+  .description("Add a remote workspace")
+  .argument("<name>", "Remote name (e.g., origin)")
+  .argument("<url>", "Remote URL or path")
+  .option("-t, --transport <type>", "Transport type (local-fs, git-remote)", "local-fs")
+  .action(syncRemoteAddCommand);
+
+syncRemote.command("list").description("List configured remotes").action(syncRemoteListCommand);
+
+syncRemote
+  .command("remove")
+  .description("Remove a remote")
+  .argument("<name>", "Remote name")
+  .action(syncRemoteRemoveCommand);
+
+sync
+  .command("pull")
+  .description("Pull artifacts from a remote workspace")
+  .argument("<remote>", "Remote name")
+  .option("--slug <pattern>", "Filter by slug pattern (supports * wildcards)")
+  .option("--tag <tag>", "Filter by tag")
+  .option("--dry-run", "Show what would change without applying")
+  .option("--no-auto-merge", "Never auto-merge — create conflict files instead")
+  .action(syncPullCommand);
+
+sync
+  .command("push")
+  .description("Push artifacts to a remote workspace")
+  .argument("<remote>", "Remote name")
+  .option("--slug <pattern>", "Filter by slug pattern (supports * wildcards)")
+  .option("--dry-run", "Show what would change without applying")
+  .action(syncPushCommand);
+
+sync
+  .command("diff")
+  .description("Show differences between local and remote")
+  .argument("<remote>", "Remote name")
+  .option("-d, --direction <dir>", "Direction (pull, push)", "pull")
+  .action(syncDiffCommand);
+
+sync
+  .command("status")
+  .description("Show sync status for remotes")
+  .argument("[remote]", "Remote name (omit to show all)")
+  .action(syncStatusCommand);
+
+sync
+  .command("pull-signals")
+  .description("Pull reputation signals from a remote")
+  .argument("<remote>", "Remote name")
+  .option("--since <timestamp>", "Only pull signals after this timestamp")
+  .action(syncPullSignalsCommand);
+
+sync
+  .command("push-signals")
+  .description("Push reputation signals to a remote")
+  .argument("<remote>", "Remote name")
+  .action(syncPushSignalsCommand);
+
+sync.command("conflicts").description("List pending sync conflicts").action(syncConflictsCommand);
+
+sync
+  .command("resolve")
+  .description("Resolve a sync conflict")
+  .argument("<slug>", "Artifact slug")
+  .option("--accept <mode>", "Resolution mode (local, remote, merged)", "local")
+  .action(syncResolveCommand);
 
 program.parse();

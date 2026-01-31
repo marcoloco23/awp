@@ -7,13 +7,15 @@ export interface ProvenanceEntry {
   /** DID of the agent that performed this action */
   agent: string;
   /** What was done */
-  action: "created" | "updated" | "merged";
+  action: "created" | "updated" | "merged" | "synced";
   /** ISO 8601 timestamp */
   timestamp: string;
   /** Optional commit message */
   message?: string;
   /** Agent's confidence at the time of this action (0.0 - 1.0) */
   confidence?: number;
+  /** Source workspace identifier when action is "synced" */
+  syncSource?: string;
 }
 
 /**

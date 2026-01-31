@@ -14,9 +14,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@agent-workspace/agent": "0.8.2",
-    "@agent-workspace/core": "0.8.2",
-    "@agent-workspace/utils": "0.8.2",
+    "@agent-workspace/agent": "*",
+    "@agent-workspace/core": "*",
+    "@agent-workspace/utils": "*",
     "gray-matter": "^4.0.3",
     "lucide-react": "^0.469.0",
     "motion": "^12.0.0",

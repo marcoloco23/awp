@@ -76,7 +76,7 @@
           },
           "action": {
             "type": "string",
-            "enum": ["created", "updated", "merged"]
+            "enum": ["created", "updated", "merged", "synced"]
           },
           "timestamp": {
             "type": "string",
@@ -91,6 +91,10 @@
             "minimum": 0,
             "maximum": 1,
             "description": "Confidence at time of this action"
+          },
+          "syncSource": {
+            "type": "string",
+            "description": "Source workspace identifier when action is 'synced'"
           }
         }
       },

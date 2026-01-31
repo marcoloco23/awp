@@ -42,8 +42,9 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@agent-workspace/core": "0.8.2",
-    "@agent-workspace/utils": "0.8.2",
+    "@agent-workspace/core": "*",
+    "@agent-workspace/sync": "*",
+    "@agent-workspace/utils": "*",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",

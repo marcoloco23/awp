@@ -32,7 +32,7 @@ export const VALID_PROJECT_STATUSES = [
 ] as const;
 
 /** Valid provenance actions */
-export const VALID_PROVENANCE_ACTIONS = ["created", "updated", "merged"] as const;
+export const VALID_PROVENANCE_ACTIONS = ["created", "updated", "merged", "synced"] as const;
 
 /** Valid priorities */
 export const VALID_PRIORITIES = ["low", "medium", "high", "critical"] as const;

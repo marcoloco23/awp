@@ -41,7 +41,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@agent-workspace/core": "0.8.2",
+    "@agent-workspace/core": "*",
     "gray-matter": "^4.0.3"
   },
   "devDependencies": {

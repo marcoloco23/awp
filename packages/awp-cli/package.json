@@ -40,9 +40,10 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@agent-workspace/agent": "0.8.2",
-    "@agent-workspace/core": "0.8.2",
-    "@agent-workspace/utils": "0.8.2",
+    "@agent-workspace/agent": "*",
+    "@agent-workspace/core": "*",
+    "@agent-workspace/sync": "*",
+    "@agent-workspace/utils": "*",
     "ajv": "^8.17.0",
     "ajv-formats": "^3.0.1",
     "bs58": "^6.0.0",

@@ -1,7 +1,7 @@
 {
-  "name": "@agent-workspace/agent",
-  "version": "0.8.3",
-  "description": "Agent runtime for AWP experiments — framework-agnostic adapter pattern with OpenAI and Anthropic implementations",
+  "name": "@agent-workspace/sync",
+  "version": "0.9.0",
+  "description": "Workspace-to-workspace sync for the Agent Workspace Protocol",
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
@@ -18,7 +18,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/marcoloco23/awp.git",
-    "directory": "packages/awp-agent"
+    "directory": "packages/awp-sync"
   },
   "homepage": "https://github.com/marcoloco23/awp#readme",
   "keywords": [
@@ -26,11 +26,8 @@
     "agent",
     "workspace",
     "protocol",
-    "experiment",
-    "simulation",
-    "openai",
-    "anthropic",
-    "llm"
+    "sync",
+    "federation"
   ],
   "engines": {
     "node": ">=18"
@@ -47,9 +44,8 @@
   "dependencies": {
     "@agent-workspace/core": "*",
     "@agent-workspace/utils": "*",
-    "@anthropic-ai/sdk": "^0.35.0",
     "gray-matter": "^4.0.3",
-    "openai": "^4.77.0"
+    "simple-git": "^3.27.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

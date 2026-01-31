@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://awp.dev/schemas/sync-remote.schema.json",
+  "title": "AWP Sync Remote Registry",
+  "description": "Schema for .awp/sync/remotes.json — registry of remote workspaces for sync",
+  "type": "object",
+  "required": ["version", "remotes"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "remotes": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["url", "transport", "added"],
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Remote URL or filesystem path"
+          },
+          "transport": {
+            "type": "string",
+            "enum": ["local-fs", "git-remote"],
+            "description": "Transport adapter type"
+          },
+          "workspaceName": {
+            "type": "string",
+            "description": "Name of the remote workspace (discovered on first connect)"
+          },
+          "agentDid": {
+            "type": "string",
+            "description": "DID of the remote workspace's agent"
+          },
+          "added": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When this remote was added"
+          },
+          "lastSync": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp of last successful sync"
+          }
+        }
+      }
+    }
+  }
+}
