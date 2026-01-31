@@ -1,6 +1,6 @@
 {
   "name": "@agent-workspace/mcp-server",
-  "version": "0.8.0",
+  "version": "0.8.2",
   "description": "MCP server exposing Agent Workspace Protocol operations — plug any AWP workspace into any MCP client",
   "license": "Apache-2.0",
   "type": "module",
@@ -42,8 +42,8 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@agent-workspace/core": "0.8.0",
-    "@agent-workspace/utils": "0.8.0",
+    "@agent-workspace/core": "0.8.2",
+    "@agent-workspace/utils": "0.8.2",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",

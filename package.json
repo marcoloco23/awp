@@ -1,6 +1,6 @@
 {
   "name": "awp",
-  "version": "0.8.0",
+  "version": "0.8.2",
   "private": true,
   "type": "module",
   "description": "Agent Workspace Protocol — coordination infrastructure for the agent economy",
