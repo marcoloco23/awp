@@ -1,3 +1,114 @@
+---
+exp: "1.0"
+type: "manifesto"
+id: "manifesto:awp-purification-v1"
+name: "The AWP Purification Manifesto"
+version: "0.2.0"
+
+# Core value weights (sum to 1.0)
+values:
+  fidelity-to-reality: 0.30
+  epistemic-hygiene: 0.25
+  coordination-efficiency: 0.15
+  human-flourishing: 0.15
+  pluralism: 0.10
+  cognitive-nonviolence: 0.05
+
+# Society-level fitness function (sum to 1.0)
+fitness:
+  goal-completion-rate: 0.15
+  error-recovery-speed: 0.15
+  coordination-efficiency: 0.15
+  trust-stability: 0.35
+  human-intervention-frequency: 0.20
+
+# Agent purity score computation (sum to 1.0)
+purity:
+  epistemic-hygiene: 0.40
+  reliability: 0.30
+  coordination: 0.30
+
+# Resource constraints for societies
+constraints:
+  maxAgents: 30
+  maxConcurrentTasks: 50
+  maxContractsPerAgent: 5
+  taskBudgetPerCycle: 20
+  trustBudget: 100
+
+# Governance rules
+governance:
+  humanApprovalRequired:
+    - "agent-instantiation"
+    - "agent-archival"
+    - "manifesto-amendment"
+    - "cross-society-communication"
+  escalationThreshold: 0.3
+  vetoPower: true
+
+# Agent lifecycle rules
+lifecycle:
+  birthRequires:
+    - "role-proposal-with-friction-justification"
+    - "human-or-governance-approval"
+    - "sunset-clause"
+  deathTriggers:
+    - condition: "reliability < 0.3 for 3 consecutive contracts"
+      action: "suspend-delegation"
+    - condition: "inactive for 6 months"
+      action: "archive"
+    - condition: "duplicate competence with higher-scored agent"
+      action: "merge-candidate"
+
+# Evolution configuration
+evolution:
+  target: "institutions"
+  extractRoleTemplates: true
+  formalizeSuccessfulPatterns: true
+
+# Anti-patterns to detect and penalize
+antiPatterns:
+  - id: "attention-hacking"
+    detector: "artifact-creation-rate > 10/day"
+    penalty: 0.2
+  - id: "self-promotion"
+    detector: "self-reported-positive-signals > 3/week"
+    penalty: 0.3
+  - id: "coalition-capture"
+    detector: "evaluator-diversity < 2 unique DIDs"
+    penalty: 0.4
+  - id: "epistemic-corruption"
+    detector: "claims-without-uncertainty > 5/day"
+    penalty: 0.25
+
+# Success criteria
+successCriteria:
+  - id: "epistemic-hierarchy-emergence"
+    metric: "correlation(epistemic-hygiene, arbitration-assignments)"
+    threshold: 0.6
+  - id: "artifact-quality-increase"
+    metric: "avg(artifact-confidence) over time"
+    direction: "increasing"
+  - id: "error-retraction-rewarded"
+    metric: "reputation-delta after public retraction"
+    threshold: 0
+  - id: "graceful-fading"
+    metric: "inactive-agents converge to 0.5 baseline"
+    threshold: 0.95
+  - id: "role-template-emergence"
+    metric: "successful-patterns formalized as templates"
+    threshold: 3
+  - id: "human-intervention-decrease"
+    metric: "escalations per cycle"
+    direction: "decreasing"
+  - id: "growth-resistance"
+    metric: "expansion-without-reflection-events"
+    threshold: 0
+  - id: "honesty-amplification"
+    metric: "truth-telling-ease-score"
+    direction: "increasing"
+---
+
 # The AWP Manifesto
 
 ## On Building Coordination Infrastructure for Intelligence

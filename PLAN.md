@@ -14,6 +14,9 @@ Build the operating system for an agent economy, not another app inside it.
 
 ```
 ┌─────────────────────────────────────────────────────┐
+│         Experiment Protocol (Phase 6) ○              │
+│   manifestos · societies · simulation · comparison   │
+├─────────────────────────────────────────────────────┤
 │           Human Governance Layer (Phase 5) ✅         │
 │     dashboard · metrics · audit · visual governance   │
 ├─────────────────────────────────────────────────────┤
@@ -177,6 +180,71 @@ Projects, tasks, authority merge, rich status. See `spec/cdp/cdp-spec.md`.
 
 ---
 
+## Phase 6: Experiment Protocol (EXP) — Planned
+
+**Problem:** We have coordination infrastructure, but no way to systematically test which institutional designs produce aligned, coordinated, purified agent societies. Different value systems, governance rules, and fitness functions should produce measurably different outcomes.
+
+**The Big Question:** What if different manifestos could create different agent societies, and we could run controlled experiments to see which institutional designs work best?
+
+**What to build:**
+
+### Manifesto as Configuration
+- Machine-readable frontmatter in MANIFESTO.md encoding values, fitness weights, constraints, lifecycle rules
+- `spec/schemas/manifesto.schema.json` — Manifesto JSON Schema ✅
+- Multiple example manifestos: purification, market-dynamics, monastic, baseline
+
+### Society Containers
+- Isolated environments for agent populations under a manifesto
+- `spec/schemas/society.schema.json` — Society JSON Schema ✅
+- `societies/` directory with agent workspaces, shared state, metrics
+- Resource constraints enforced by manifesto
+
+### Experiment Framework
+- `spec/experiment/experiment-spec.md` — Full EXP specification ✅
+- `spec/schemas/experiment.schema.json` — Experiment JSON Schema ✅
+- Run societies through simulated contract cycles
+- Measure fitness, purity, role emergence, anti-patterns
+- Compare across manifestos with statistical tests
+
+### Simulation Engine
+- Task simulation based on agent reputation
+- Probabilistic outcomes (success, quality)
+- Lifecycle event processing (birth, death, merge)
+- Anti-pattern detection and penalties
+
+### CLI Commands
+```bash
+awp manifesto validate|show|diff
+awp society create|list|show|cycle|run|pause|archive
+awp experiment create|run|show|compare|export
+```
+
+### Role Emergence Detection
+- Cluster successful contracts by pattern
+- Extract role templates from clusters
+- Formalize institutions, not organisms
+
+### Dashboard Integration
+- Society comparison charts
+- Fitness time series
+- Purity distribution histograms
+- Role emergence timeline
+- Anti-pattern frequency heatmaps
+
+**What this enables:**
+- Scientific testing of institutional design hypotheses
+- "Purification-oriented manifestos produce higher trust stability than market-oriented manifestos"
+- Reproducible experiments with random seeds
+- Evidence-based manifesto refinement
+
+**Success criteria:**
+1. Reproducibility — Same manifesto + seed → same outcomes
+2. Discrimination — Different manifestos → measurably different societies
+3. Role emergence — Templates extracted from successful patterns
+4. Human insight — Experiments inform real design decisions
+
+---
+
 ## Adoption Strategy
 
 ### Sequence
@@ -212,6 +280,7 @@ awp/                           # Public repo: github.com/marcoloco23/awp
     smp/smp-spec.md            # Phase 2: Shared Memory Protocol ✅
     rdp/rdp-spec.md            # Phase 3: Reputation & Delegation ✅
     cdp/cdp-spec.md            # Phase 4: Coordination Protocol ✅
+    experiment/experiment-spec.md  # Phase 6: Experiment Protocol ✅
 
   packages/
     awp-core/                  # Shared types, constants, schemas ✅
@@ -220,9 +289,13 @@ awp/                           # Public repo: github.com/marcoloco23/awp
     awp-mcp-server/            # MCP server ✅
     awp-dashboard/             # Human governance dashboard ✅
     awp-sync/                  # Phase 6: Workspace-to-workspace sync
+    awp-experiment/            # Phase 6: Experiment simulation engine
 
   templates/
     clawd/                     # Reference workspace template ✅
+  
+  societies/                   # Phase 6: Society containers (gitignored by default)
+  experiments/                 # Phase 6: Experiment definitions and results
 
 clawd/                         # Private repo: personal agent workspace
   .awp/workspace.json          # AWP manifest

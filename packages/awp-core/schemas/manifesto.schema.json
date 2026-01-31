@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://awp.dev/schemas/manifesto.schema.json",
+  "title": "AWP Manifesto Configuration",
+  "description": "Machine-readable configuration for manifesto principles (EXP v1.0)",
+  "type": "object",
+  "required": ["exp", "type", "id", "name", "version", "values", "fitness", "constraints"],
+  "properties": {
+    "exp": {
+      "type": "string",
+      "description": "EXP specification version"
+    },
+    "type": {
+      "type": "string",
+      "const": "manifesto"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^manifesto:[a-z0-9][a-z0-9-]*$",
+      "description": "Unique identifier (manifesto:<slug>)"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable manifesto name"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Manifesto version (semver)"
+    },
+    "values": {
+      "type": "object",
+      "description": "Core value weights (must sum to 1.0)",
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+      }
+    },
+    "fitness": {
+      "$ref": "#/$defs/fitnessConfig",
+      "description": "Society-level fitness function weights"
+    },
+    "purity": {
+      "$ref": "#/$defs/purityConfig",
+      "description": "Agent purity score computation weights"
+    },
+    "constraints": {
+      "$ref": "#/$defs/constraintsConfig",
+      "description": "Resource constraints for societies"
+    },
+    "governance": {
+      "$ref": "#/$defs/governanceConfig",
+      "description": "Governance rules"
+    },
+    "lifecycle": {
+      "$ref": "#/$defs/lifecycleConfig",
+      "description": "Agent birth and death rules"
+    },
+    "evolution": {
+      "$ref": "#/$defs/evolutionConfig",
+      "description": "What the manifesto evolves"
+    },
+    "antiPatterns": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/antiPattern" },
+      "description": "Anti-patterns to detect and penalize"
+    },
+    "successCriteria": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/successCriterion" },
+      "description": "Criteria for manifesto success"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "fitnessConfig": {
+      "type": "object",
+      "properties": {
+        "goal-completion-rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "error-recovery-speed": { "type": "number", "minimum": 0, "maximum": 1 },
+        "coordination-efficiency": { "type": "number", "minimum": 0, "maximum": 1 },
+        "trust-stability": { "type": "number", "minimum": 0, "maximum": 1 },
+        "human-intervention-frequency": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
+    },
+    "purityConfig": {
+      "type": "object",
+      "properties": {
+        "epistemic-hygiene": { "type": "number", "minimum": 0, "maximum": 1 },
+        "reliability": { "type": "number", "minimum": 0, "maximum": 1 },
+        "coordination": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
+    },
+    "constraintsConfig": {
+      "type": "object",
+      "properties": {
+        "maxAgents": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum agents in the society"
+        },
+        "maxConcurrentTasks": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum concurrent tasks"
+        },
+        "maxContractsPerAgent": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum contracts per agent"
+        },
+        "taskBudgetPerCycle": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Tasks generated per cycle"
+        },
+        "trustBudget": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Total trust budget for the society"
+        }
+      },
+      "additionalProperties": true
+    },
+    "governanceConfig": {
+      "type": "object",
+      "properties": {
+        "humanApprovalRequired": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Actions requiring human approval"
+        },
+        "escalationThreshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence threshold for escalation"
+        },
+        "vetoPower": {
+          "type": "boolean",
+          "description": "Whether humans have veto power"
+        }
+      },
+      "additionalProperties": true
+    },
+    "lifecycleConfig": {
+      "type": "object",
+      "properties": {
+        "birthRequires": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Requirements for agent instantiation"
+        },
+        "deathTriggers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["condition", "action"],
+            "properties": {
+              "condition": { "type": "string" },
+              "action": {
+                "type": "string",
+                "enum": ["suspend-delegation", "rate-limit", "archive", "merge-candidate"]
+              }
+            }
+          },
+          "description": "Conditions that trigger agent lifecycle events"
+        }
+      },
+      "additionalProperties": true
+    },
+    "evolutionConfig": {
+      "type": "object",
+      "properties": {
+        "target": {
+          "type": "string",
+          "enum": ["institutions", "agents", "both"],
+          "description": "What the manifesto optimizes"
+        },
+        "extractRoleTemplates": {
+          "type": "boolean",
+          "description": "Whether to extract role templates from successful patterns"
+        },
+        "formalizeSuccessfulPatterns": {
+          "type": "boolean",
+          "description": "Whether to formalize successful coordination patterns"
+        }
+      },
+      "additionalProperties": true
+    },
+    "antiPattern": {
+      "type": "object",
+      "required": ["id", "detector", "penalty"],
+      "properties": {
+        "id": { "type": "string" },
+        "detector": { "type": "string", "description": "Detection rule expression" },
+        "penalty": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "successCriterion": {
+      "type": "object",
+      "required": ["id", "metric"],
+      "properties": {
+        "id": { "type": "string" },
+        "metric": { "type": "string" },
+        "threshold": { "type": "number" },
+        "direction": { "type": "string", "enum": ["increasing", "decreasing", "stable"] }
+      }
+    }
+  }
+}

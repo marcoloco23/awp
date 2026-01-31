@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://awp.dev/schemas/society.schema.json",
+  "title": "AWP Society Container",
+  "description": "Schema for society manifest - an isolated agent population under a manifesto (EXP v1.0)",
+  "type": "object",
+  "required": ["exp", "type", "id", "name", "manifesto", "status", "created", "cycle", "population", "resources"],
+  "properties": {
+    "exp": {
+      "type": "string",
+      "description": "EXP specification version"
+    },
+    "type": {
+      "type": "string",
+      "const": "society"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^society:[a-z0-9][a-z0-9-]*$",
+      "description": "Unique identifier (society:<slug>)"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable society name"
+    },
+    "manifesto": {
+      "type": "string",
+      "pattern": "^manifesto:[a-z0-9][a-z0-9-]*$",
+      "description": "ID of the governing manifesto"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["initializing", "running", "paused", "completed", "archived"],
+      "description": "Society lifecycle state"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Creation timestamp"
+    },
+    "cycle": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Current simulation cycle"
+    },
+    "population": {
+      "$ref": "#/$defs/populationStats",
+      "description": "Agent population statistics"
+    },
+    "resources": {
+      "$ref": "#/$defs/resourceStats",
+      "description": "Resource allocation"
+    },
+    "fitness": {
+      "$ref": "#/$defs/fitnessStats",
+      "description": "Society fitness metrics"
+    },
+    "alerts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/alert" },
+      "description": "Active alerts (anti-patterns, escalations)"
+    },
+    "roleTemplates": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "IDs of role templates emerged from this society"
+    },
+    "linkedExperiment": {
+      "type": "string",
+      "pattern": "^experiment:[a-z0-9][a-z0-9-]*$",
+      "description": "ID of experiment this society belongs to (if any)"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "populationStats": {
+      "type": "object",
+      "required": ["current", "max"],
+      "properties": {
+        "current": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Current agent count"
+        },
+        "max": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum allowed agents"
+        },
+        "births": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total agents instantiated"
+        },
+        "deaths": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total agents that died (all types)"
+        },
+        "archived": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Agents archived"
+        },
+        "merged": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Agents merged into others"
+        },
+        "suspended": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Currently suspended agents"
+        }
+      }
+    },
+    "resourceStats": {
+      "type": "object",
+      "properties": {
+        "trustBudget": {
+          "type": "object",
+          "properties": {
+            "total": { "type": "number" },
+            "allocated": { "type": "number" },
+            "available": { "type": "number" }
+          }
+        },
+        "taskSlots": {
+          "type": "object",
+          "properties": {
+            "total": { "type": "integer" },
+            "active": { "type": "integer" },
+            "available": { "type": "integer" }
+          }
+        },
+        "contractSlots": {
+          "type": "object",
+          "properties": {
+            "total": { "type": "integer" },
+            "active": { "type": "integer" },
+            "available": { "type": "integer" }
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "fitnessStats": {
+      "type": "object",
+      "properties": {
+        "current": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Current fitness score"
+        },
+        "history": {
+          "type": "array",
+          "items": { "type": "number" },
+          "description": "Fitness score history (per measurement interval)"
+        },
+        "components": {
+          "type": "object",
+          "additionalProperties": { "type": "number" },
+          "description": "Current values of individual fitness components"
+        }
+      }
+    },
+    "alert": {
+      "type": "object",
+      "required": ["type", "severity"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["anti-pattern", "escalation", "resource-exhaustion", "fitness-decline"]
+        },
+        "pattern": { "type": "string" },
+        "agent": { "type": "string" },
+        "message": { "type": "string" },
+        "severity": {
+          "type": "string",
+          "enum": ["info", "warning", "critical"]
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

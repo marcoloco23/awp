@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://awp.dev/schemas/experiment.schema.json",
+  "title": "AWP Experiment",
+  "description": "Schema for experiment manifest - comparing societies under different manifestos (EXP v1.0)",
+  "type": "object",
+  "required": ["exp", "type", "id", "name", "status", "created", "societies", "simulation"],
+  "properties": {
+    "exp": {
+      "type": "string",
+      "description": "EXP specification version"
+    },
+    "type": {
+      "type": "string",
+      "const": "experiment"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^experiment:[a-z0-9][a-z0-9-]*$",
+      "description": "Unique identifier (experiment:<slug>)"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable experiment name"
+    },
+    "hypothesis": {
+      "type": "string",
+      "description": "The hypothesis being tested"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Creation timestamp"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "running", "paused", "completed", "analyzed"],
+      "description": "Experiment lifecycle state"
+    },
+    "societies": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/societyRef" },
+      "minItems": 1,
+      "description": "Societies being compared"
+    },
+    "simulation": {
+      "$ref": "#/$defs/simulationConfig",
+      "description": "Simulation parameters"
+    },
+    "measurement": {
+      "$ref": "#/$defs/measurementConfig",
+      "description": "What and how to measure"
+    },
+    "comparison": {
+      "$ref": "#/$defs/comparisonConfig",
+      "description": "How to compare societies"
+    },
+    "results": {
+      "$ref": "#/$defs/experimentResults",
+      "description": "Experiment results (populated after completion)"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "societyRef": {
+      "type": "object",
+      "required": ["id", "manifesto"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^society:[a-z0-9][a-z0-9-]*$"
+        },
+        "manifesto": {
+          "type": "string",
+          "pattern": "^manifesto:[a-z0-9][a-z0-9-]*$"
+        },
+        "label": {
+          "type": "string",
+          "description": "Short label for charts/comparisons"
+        }
+      }
+    },
+    "simulationConfig": {
+      "type": "object",
+      "required": ["cycles"],
+      "properties": {
+        "cycles": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of cycles to run"
+        },
+        "cycleLength": {
+          "type": "string",
+          "description": "Simulated time per cycle (e.g., '1 day')"
+        },
+        "tasksPerCycle": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Tasks generated per cycle"
+        },
+        "contractsPerCycle": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Contracts created per cycle"
+        },
+        "randomSeed": {
+          "type": "integer",
+          "description": "Random seed for reproducibility"
+        },
+        "parallelExecution": {
+          "type": "boolean",
+          "description": "Run societies in parallel"
+        }
+      }
+    },
+    "measurementConfig": {
+      "type": "object",
+      "properties": {
+        "interval": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Measure every N cycles"
+        },
+        "metrics": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Metrics to collect"
+        },
+        "snapshots": {
+          "type": "boolean",
+          "description": "Whether to store full state snapshots"
+        }
+      }
+    },
+    "comparisonConfig": {
+      "type": "object",
+      "properties": {
+        "primary": {
+          "type": "string",
+          "description": "Primary metric for comparison"
+        },
+        "statistical": {
+          "type": "string",
+          "enum": ["t-test", "anova", "mann-whitney", "kruskal-wallis"],
+          "description": "Statistical test to use"
+        },
+        "significance": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Significance level (alpha)"
+        }
+      }
+    },
+    "experimentResults": {
+      "type": "object",
+      "properties": {
+        "completedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "totalCycles": {
+          "type": "integer"
+        },
+        "societyResults": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/societyResult" }
+        },
+        "comparison": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "conclusion": {
+          "type": "string",
+          "description": "Human-readable conclusion"
+        },
+        "hypothesisSupported": {
+          "type": "boolean",
+          "description": "Whether the hypothesis was supported"
+        }
+      }
+    },
+    "societyResult": {
+      "type": "object",
+      "properties": {
+        "finalFitness": { "type": "number" },
+        "avgFitness": { "type": "number" },
+        "finalPurityMean": { "type": "number" },
+        "roleTemplatesEmerged": { "type": "integer" },
+        "humanInterventions": { "type": "integer" },
+        "antiPatternViolations": { "type": "integer" },
+        "populationHistory": {
+          "type": "array",
+          "items": { "type": "integer" }
+        },
+        "fitnessHistory": {
+          "type": "array",
+          "items": { "type": "number" }
+        }
+      }
+    },
+    "comparisonResult": {
+      "type": "object",
+      "properties": {
+        "metric": { "type": "string" },
+        "means": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
+        },
+        "stddevs": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
+        },
+        "testStatistic": { "type": "number" },
+        "pValue": { "type": "number" },
+        "significantDifference": { "type": "boolean" },
+        "winner": {
+          "type": "string",
+          "description": "Society ID with best performance on primary metric"
+        }
+      }
+    }
+  }
+}
