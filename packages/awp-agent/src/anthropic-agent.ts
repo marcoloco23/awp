@@ -1,34 +1,45 @@
 /**
- * OpenAI-based agent implementation.
+ * Anthropic-based agent implementation.
  *
- * Uses the OpenAI SDK with function calling to execute AWP tasks.
+ * Uses the Anthropic SDK with tool_use to execute AWP tasks.
  */
 
-import OpenAI from "openai";
-import type { AgentTask, TaskResult, ToolCall } from "./types.js";
+import Anthropic from "@anthropic-ai/sdk";
+import type { AgentTask, TaskResult, ToolCall, ToolDefinition } from "./types.js";
 import { BaseAgent, MAX_ITERATIONS, DEFAULT_TIMEOUT_MS } from "./base-agent.js";
 import { AWP_TOOLS, executeToolCall } from "./tools.js";
 
 /**
- * OpenAI-based agent that executes AWP tasks using function calling.
+ * Convert OpenAI-style tool definitions to Anthropic format.
  */
-export class OpenAIAgent extends BaseAgent {
-  private client: OpenAI;
+function toAnthropicTools(tools: ToolDefinition[]): Anthropic.Tool[] {
+  return tools.map((t) => ({
+    name: t.function.name,
+    description: t.function.description,
+    input_schema: t.function.parameters as Anthropic.Tool.InputSchema,
+  }));
+}
+
+/**
+ * Anthropic-based agent that executes AWP tasks using tool_use.
+ */
+export class AnthropicAgent extends BaseAgent {
+  private client: Anthropic;
 
   constructor(
     id: string,
     workspace: string,
-    private readonly model: string = "gpt-4o-mini",
+    private readonly model: string = "claude-sonnet-4-20250514",
     apiKey?: string
   ) {
     super(id, workspace);
-    this.client = new OpenAI({
-      apiKey: apiKey || process.env.OPENAI_API_KEY,
+    this.client = new Anthropic({
+      apiKey: apiKey || process.env.ANTHROPIC_API_KEY,
     });
   }
 
   /**
-   * Execute a task using the OpenAI function calling loop.
+   * Execute a task using the Anthropic tool_use loop.
    */
   async executeTask(task: AgentTask): Promise<TaskResult> {
     const startTime = Date.now();
@@ -41,16 +52,12 @@ export class OpenAIAgent extends BaseAgent {
       // Build system prompt from agent identity
       const systemPrompt = await this.buildSystemPrompt(task);
 
-      // Convert tools to OpenAI format
+      // Convert tools to Anthropic format
       const tools = task.tools.length > 0 ? task.tools : AWP_TOOLS;
-      const openaiTools = tools.map((t) => ({
-        type: "function" as const,
-        function: t.function,
-      }));
+      const anthropicTools = toAnthropicTools(tools);
 
       // Initial messages
-      const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-        { role: "system", content: systemPrompt },
+      const messages: Anthropic.MessageParam[] = [
         {
           role: "user",
           content: `Please complete the following task:\n\n${task.description}\n\nUse the available tools to complete this task. When finished, call the task_complete tool with a summary of what you accomplished.`,
@@ -77,30 +84,33 @@ export class OpenAIAgent extends BaseAgent {
 
         iterations++;
 
-        // Call OpenAI
-        const response = await this.client.chat.completions.create({
+        // Call Anthropic
+        const response = await this.client.messages.create({
           model: this.model,
+          max_tokens: 4096,
+          system: systemPrompt,
+          tools: anthropicTools,
           messages,
-          tools: openaiTools,
-          tool_choice: "auto",
         });
 
-        const choice = response.choices[0];
-        const message = choice.message;
-
         // Track tokens
-        totalInputTokens += response.usage?.prompt_tokens || 0;
-        totalOutputTokens += response.usage?.completion_tokens || 0;
+        totalInputTokens += response.usage.input_tokens;
+        totalOutputTokens += response.usage.output_tokens;
 
-        if (message.content) {
-          lastAssistantContent = message.content;
-          rawResponse += message.content + "\n";
+        // Process response content blocks
+        const toolUseBlocks: Anthropic.ToolUseBlock[] = [];
+        for (const block of response.content) {
+          if (block.type === "text") {
+            lastAssistantContent = block.text;
+            rawResponse += block.text + "\n";
+          } else if (block.type === "tool_use") {
+            toolUseBlocks.push(block);
+          }
         }
 
-        // No tool calls — task complete or model finished
-        if (!message.tool_calls || message.tool_calls.length === 0) {
-          // Check if model naturally concluded
-          if (choice.finish_reason === "stop") {
+        // No tool calls — check if model finished
+        if (toolUseBlocks.length === 0) {
+          if (response.stop_reason === "end_turn") {
             isComplete = true;
             break;
           }
@@ -108,25 +118,24 @@ export class OpenAIAgent extends BaseAgent {
         }
 
         // Add assistant message to history
-        messages.push(message);
+        messages.push({
+          role: "assistant",
+          content: response.content,
+        });
 
-        // Process tool calls
-        for (const toolCall of message.tool_calls) {
+        // Process tool calls and collect results
+        const toolResults: Anthropic.ToolResultBlockParam[] = [];
+
+        for (const toolUse of toolUseBlocks) {
           const callStart = Date.now();
-          const funcName = toolCall.function.name;
-          let funcArgs: Record<string, unknown> = {};
-
-          try {
-            funcArgs = JSON.parse(toolCall.function.arguments);
-          } catch {
-            funcArgs = {};
-          }
+          const funcName = toolUse.name;
+          const funcArgs = toolUse.input as Record<string, unknown>;
 
           // Execute the tool
           const result = await executeToolCall(this.workspace, funcName, funcArgs);
 
           const tc: ToolCall = {
-            id: toolCall.id,
+            id: toolUse.id,
             name: funcName,
             arguments: funcArgs,
             result: result.result,
@@ -135,11 +144,12 @@ export class OpenAIAgent extends BaseAgent {
           };
           toolCalls.push(tc);
 
-          // Add tool result to messages
-          messages.push({
-            role: "tool",
-            tool_call_id: toolCall.id,
+          // Add to tool results
+          toolResults.push({
+            type: "tool_result",
+            tool_use_id: toolUse.id,
             content: result.result,
+            is_error: result.isError,
           });
 
           // Check if task_complete was called
@@ -147,6 +157,12 @@ export class OpenAIAgent extends BaseAgent {
             isComplete = true;
           }
         }
+
+        // Add tool results as user message
+        messages.push({
+          role: "user",
+          content: toolResults,
+        });
       }
 
       // Determine success

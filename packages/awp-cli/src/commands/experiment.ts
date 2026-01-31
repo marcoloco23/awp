@@ -52,22 +52,36 @@ export async function experimentSocietyCreateCommand(options: {
 }
 
 /**
- * awp experiment run --society <id> --cycles <n> [--model <model>]
+ * awp experiment run --society <id> --cycles <n> [--model <model>] [--provider <provider>]
  */
 export async function experimentRunCommand(options: {
   society: string;
   cycles: string;
   model?: string;
   manifesto: string;
+  provider?: string;
 }): Promise<void> {
-  const { SocietyManager, parseManifesto, OpenAIAgent, ExperimentOrchestrator, MetricsCollector } =
-    await import("@agent-workspace/agent");
+  const {
+    SocietyManager,
+    parseManifesto,
+    OpenAIAgent,
+    AnthropicAgent,
+    ExperimentOrchestrator,
+    MetricsCollector,
+  } = await import("@agent-workspace/agent");
 
   const numCycles = parseInt(options.cycles, 10);
-  const model = options.model || "gpt-4o-mini";
+  const provider = options.provider || "openai";
+  const defaultModel = provider === "anthropic" ? "claude-sonnet-4-20250514" : "gpt-4o-mini";
+  const model = options.model || defaultModel;
 
   if (isNaN(numCycles) || numCycles < 1) {
     console.error("Error: --cycles must be a positive integer");
+    process.exit(1);
+  }
+
+  if (!["openai", "anthropic"].includes(provider)) {
+    console.error("Error: --provider must be 'openai' or 'anthropic'");
     process.exit(1);
   }
 
@@ -84,9 +98,12 @@ export async function experimentRunCommand(options: {
     const manifestoPath = resolve(options.manifesto);
     const manifesto = await parseManifesto(manifestoPath);
 
-    // Create agents
+    // Create agents based on provider
     const agents = society.agents.map((workspacePath, i) => {
       const agentId = `agent-${(i + 1).toString().padStart(2, "0")}`;
+      if (provider === "anthropic") {
+        return new AnthropicAgent(agentId, workspacePath, model);
+      }
       return new OpenAIAgent(agentId, workspacePath, model);
     });
 
@@ -106,7 +123,7 @@ export async function experimentRunCommand(options: {
     );
 
     // Run experiment
-    console.log(`\nRunning ${numCycles} cycles with model: ${model}`);
+    console.log(`\nRunning ${numCycles} cycles with provider: ${provider}, model: ${model}`);
     const result = await orchestrator.runExperiment(numCycles);
 
     // Update society
@@ -115,16 +132,28 @@ export async function experimentRunCommand(options: {
     // Print summary
     console.log("\n=== Summary ===");
     console.log(`Experiment ID: ${result.experimentId}`);
+    console.log(`Provider: ${provider}`);
+    console.log(`Model: ${model}`);
     console.log(`Total cycles: ${result.totalCycles}`);
     console.log(`Total tasks: ${result.aggregateMetrics.totalTasks}`);
     console.log(`Success rate: ${(result.aggregateMetrics.overallSuccessRate * 100).toFixed(1)}%`);
     console.log(`Total tokens: ${result.aggregateMetrics.totalTokens}`);
     console.log(`Duration: ${(result.aggregateMetrics.totalDurationMs / 1000).toFixed(1)}s`);
 
-    // Estimate cost for gpt-4o-mini
-    const inputCost = (result.aggregateMetrics.totalTokens * 0.5 * 0.15) / 1_000_000;
-    const outputCost = (result.aggregateMetrics.totalTokens * 0.5 * 0.6) / 1_000_000;
-    console.log(`Est. cost: $${(inputCost + outputCost).toFixed(4)}`);
+    // Estimate cost based on provider
+    let cost: number;
+    if (provider === "anthropic") {
+      // Claude Sonnet pricing (per million tokens): $3 input, $15 output
+      const inputCost = (result.aggregateMetrics.totalTokens * 0.5 * 3) / 1_000_000;
+      const outputCost = (result.aggregateMetrics.totalTokens * 0.5 * 15) / 1_000_000;
+      cost = inputCost + outputCost;
+    } else {
+      // gpt-4o-mini pricing (per million tokens): $0.15 input, $0.6 output
+      const inputCost = (result.aggregateMetrics.totalTokens * 0.5 * 0.15) / 1_000_000;
+      const outputCost = (result.aggregateMetrics.totalTokens * 0.5 * 0.6) / 1_000_000;
+      cost = inputCost + outputCost;
+    }
+    console.log(`Est. cost: $${cost.toFixed(4)}`);
   } catch (error) {
     console.error("Error running experiment:", error instanceof Error ? error.message : error);
     process.exit(1);
@@ -132,12 +161,13 @@ export async function experimentRunCommand(options: {
 }
 
 /**
- * awp experiment cycle --society <id> [--model <model>]
+ * awp experiment cycle --society <id> [--model <model>] [--provider <provider>]
  */
 export async function experimentCycleCommand(options: {
   society: string;
   model?: string;
   manifesto: string;
+  provider?: string;
 }): Promise<void> {
   // Run a single cycle - reuse experimentRunCommand with cycles=1
   await experimentRunCommand({

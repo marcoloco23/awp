@@ -69,8 +69,9 @@ AWP sits below all other protocols — defining what the agent *is*, while they 
 |---------|-------------|---------|
 | [@agent-workspace/core](packages/awp-core/) | Types, constants, JSON schemas | `npm i @agent-workspace/core` |
 | [@agent-workspace/utils](packages/awp-utils/) | Shared utilities (validation, reputation math) | `npm i @agent-workspace/utils` |
-| [@agent-workspace/cli](packages/awp-cli/) | CLI tool (init, validate, inspect, status, identity, memory, artifact, reputation, contract, project, task, swarm) | `npm i -g @agent-workspace/cli` |
+| [@agent-workspace/cli](packages/awp-cli/) | CLI tool (init, validate, inspect, status, identity, memory, artifact, reputation, contract, project, task, swarm, experiment) | `npm i -g @agent-workspace/cli` |
 | [@agent-workspace/mcp-server](packages/awp-mcp-server/) | MCP server for any MCP-compatible client | `npm i @agent-workspace/mcp-server` |
+| [@agent-workspace/agent](packages/awp-agent/) | Agent runtime for experiments (OpenAI, Anthropic) | `npm i @agent-workspace/agent` |
 | [@agent-workspace/dashboard](packages/awp-dashboard/) | Human governance dashboard (Next.js) | Private — run locally |
 
 ## Dashboard
@@ -244,6 +245,86 @@ awp swarm list --status recruiting
 ```
 
 Swarms automatically transition from `recruiting` to `active` status when all roles are filled. See [spec/cdp/cdp-spec.md](spec/cdp/cdp-spec.md) for the Coordination Protocol specification.
+
+## Experiments (EXP)
+
+Run manifesto-driven experiments with multi-agent societies:
+
+```bash
+# Create a society of 3 agents
+awp experiment society create --manifesto MANIFESTO.md --agents 3 --seed 42
+
+# Run 5 cycles
+awp experiment run --society manifesto-xxx-123 --cycles 5 --manifesto MANIFESTO.md
+
+# Use Anthropic instead of OpenAI
+awp experiment run --society manifesto-xxx-123 --cycles 5 --manifesto MANIFESTO.md --provider anthropic
+
+# List all societies
+awp experiment list
+
+# Show society details and results
+awp experiment show manifesto-xxx-123
+```
+
+### Environment Variables
+
+```bash
+# For OpenAI agents (default)
+export OPENAI_API_KEY=sk-xxx
+
+# For Anthropic agents
+export ANTHROPIC_API_KEY=sk-ant-xxx
+```
+
+### Moltbot / Clawdbot Integration
+
+AWP experiments can be run through moltbot (clawdbot) for conversational access:
+
+```bash
+# Install the skill
+cp -r skills/awp-experiment ~/.nvm/versions/node/*/lib/node_modules/clawdbot/skills/
+
+# Link the CLI globally
+npm link -w packages/awp-cli
+
+# Use via clawdbot
+clawdbot agent --message "Create a 3-agent AWP society"
+clawdbot agent --message "Run 2 cycles on society manifesto-xxx"
+```
+
+### Programmatic Usage
+
+```typescript
+import { 
+  OpenAIAgent, 
+  AnthropicAgent,
+  ExperimentOrchestrator, 
+  SocietyManager,
+  parseManifesto 
+} from '@agent-workspace/agent';
+
+// Parse manifesto
+const manifesto = await parseManifesto('./MANIFESTO.md');
+
+// Create society
+const manager = new SocietyManager('./societies');
+const society = await manager.createSociety('my-experiment', manifesto.id, 3);
+
+// Create agents (OpenAI or Anthropic)
+const agents = society.agents.map((ws, i) => 
+  new OpenAIAgent(`agent-${i}`, ws, 'gpt-4o-mini')
+  // Or: new AnthropicAgent(`agent-${i}`, ws, 'claude-sonnet-4-20250514')
+);
+
+// Run experiment
+const orchestrator = new ExperimentOrchestrator(manifesto, agents, new MetricsCollector(), society);
+const results = await orchestrator.runExperiment(10);
+
+console.log(`Success rate: ${results.aggregateMetrics.overallSuccessRate * 100}%`);
+```
+
+See [packages/awp-agent/AGENT_ADAPTER.md](packages/awp-agent/AGENT_ADAPTER.md) for implementing custom agent adapters.
 
 ## File Format
 

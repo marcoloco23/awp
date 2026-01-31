@@ -405,7 +405,8 @@ experiment
   .requiredOption("-s, --society <id>", "Society ID")
   .requiredOption("-c, --cycles <n>", "Number of cycles to run")
   .requiredOption("-m, --manifesto <path>", "Path to manifesto file")
-  .option("--model <model>", "LLM model to use (default: gpt-4o-mini)")
+  .option("--model <model>", "LLM model to use")
+  .option("--provider <provider>", "LLM provider: openai or anthropic (default: openai)")
   .action(experimentRunCommand);
 
 experiment
@@ -413,7 +414,8 @@ experiment
   .description("Run a single cycle on a society")
   .requiredOption("-s, --society <id>", "Society ID")
   .requiredOption("-m, --manifesto <path>", "Path to manifesto file")
-  .option("--model <model>", "LLM model to use (default: gpt-4o-mini)")
+  .option("--model <model>", "LLM model to use")
+  .option("--provider <provider>", "LLM provider: openai or anthropic (default: openai)")
   .action(experimentCycleCommand);
 
 experiment.command("list").description("List all societies").action(experimentListCommand);
