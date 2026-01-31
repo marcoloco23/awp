@@ -16,8 +16,12 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AWP Dashboard",
-  description: "Human governance dashboard for Agent Workspace Protocol",
+  title: {
+    default: "AWP Dashboard",
+    template: "%s — AWP Dashboard",
+  },
+  description: "Human governance dashboard for Agent Workspace Protocol — monitor projects, reputation, artifacts, contracts, and memory.",
+  keywords: ["awp", "agent workspace protocol", "governance", "dashboard", "multi-agent"],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

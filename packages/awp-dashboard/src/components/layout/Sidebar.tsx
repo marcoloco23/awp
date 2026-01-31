@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion } from "motion/react";
 import {
   LayoutDashboard,
   FolderKanban,
@@ -52,27 +53,37 @@ export function Sidebar() {
         <div className="text-[10px] font-mono text-[var(--text-muted)] tracking-wider uppercase px-2.5 py-2">
           Workspace
         </div>
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {navItems.map(({ href, label, icon: Icon }, i) => {
           const isActive = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (
-            <Link
+            <motion.div
               key={href}
-              href={href}
-              className={`
-                flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-all
-                ${
-                  isActive
-                    ? "bg-[var(--accent-glow-strong)] text-[var(--accent)] font-medium"
-                    : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-2)]"
-                }
-              `}
+              initial={{ opacity: 0, x: -12 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3, delay: 0.05 + i * 0.05, ease: "easeOut" }}
             >
-              <Icon size={16} strokeWidth={isActive ? 2 : 1.5} />
-              {label}
-              {isActive && (
-                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_6px_var(--accent)]" />
-              )}
-            </Link>
+              <Link
+                href={href}
+                className={`
+                  flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-all
+                  ${
+                    isActive
+                      ? "bg-[var(--accent-glow-strong)] text-[var(--accent)] font-medium"
+                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-2)]"
+                  }
+                `}
+              >
+                <Icon size={16} strokeWidth={isActive ? 2 : 1.5} />
+                {label}
+                {isActive && (
+                  <motion.div
+                    layoutId="sidebar-indicator"
+                    className="ml-auto w-1.5 h-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_6px_var(--accent)]"
+                    transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                  />
+                )}
+              </Link>
+            </motion.div>
           );
         })}
       </nav>

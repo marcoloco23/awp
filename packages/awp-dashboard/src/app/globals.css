@@ -301,10 +301,16 @@ body {
   }
 }
 
+/* --- Fade In (individual elements) --- */
+.animate-fade-in {
+  animation: fadeUp 0.4s ease-out both;
+}
+
 /* --- Reduced Motion --- */
 @media (prefers-reduced-motion: reduce) {
   .page-enter,
-  .stagger-children > * {
+  .stagger-children > *,
+  .animate-fade-in {
     animation: none !important;
   }
 }

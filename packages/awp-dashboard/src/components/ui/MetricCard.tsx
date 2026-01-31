@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import { AnimatedNumber } from "./AnimatedNumber";
 
 interface MetricCardProps {
   label: string;
@@ -6,11 +7,17 @@ interface MetricCardProps {
   icon: LucideIcon;
   detail?: string;
   variant?: "default" | "accent";
+  index?: number;
 }
 
-export function MetricCard({ label, value, icon: Icon, detail, variant = "default" }: MetricCardProps) {
+export function MetricCard({ label, value, icon: Icon, detail, variant = "default", index = 0 }: MetricCardProps) {
+  const isNumeric = typeof value === "number";
+
   return (
-    <div className="card p-4 flex items-start gap-3.5">
+    <div
+      className="card p-4 flex items-start gap-3.5 animate-fade-in"
+      style={{ animationDelay: `${index * 60}ms` }}
+    >
       <div
         className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0"
         style={{
@@ -27,7 +34,7 @@ export function MetricCard({ label, value, icon: Icon, detail, variant = "defaul
           {label}
         </div>
         <div className="text-2xl font-semibold tracking-tight text-[var(--text-primary)] font-[var(--font-mono)]" style={{ fontFamily: "var(--font-mono)" }}>
-          {value}
+          {isNumeric ? <AnimatedNumber value={value} /> : value}
         </div>
         {detail && (
           <div className="text-xs text-[var(--text-secondary)] mt-0.5">{detail}</div>

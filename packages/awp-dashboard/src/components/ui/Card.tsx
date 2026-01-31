@@ -1,3 +1,6 @@
+"use client";
+
+import { motion } from "motion/react";
 import type { ReactNode } from "react";
 
 interface CardProps {
@@ -14,10 +17,21 @@ const paddings = {
 };
 
 export function Card({ children, className = "", hover = true, padding = "md" }: CardProps) {
+  if (!hover) {
+    return (
+      <div className={`card ${paddings[padding]} hover:border-[var(--border)] hover:shadow-none ${className}`}>
+        {children}
+      </div>
+    );
+  }
+
   return (
-    <div className={`card ${paddings[padding]} ${hover ? "" : "hover:border-[var(--border)] hover:shadow-none"} ${className}`}>
+    <motion.div
+      className={`card ${paddings[padding]} ${className}`}
+      whileHover={{ scale: 1.01, transition: { duration: 0.2 } }}
+    >
       {children}
-    </div>
+    </motion.div>
   );
 }
 

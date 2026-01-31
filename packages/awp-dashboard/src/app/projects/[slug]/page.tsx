@@ -5,6 +5,7 @@ import { Card, CardInset } from "@/components/ui/Card";
 import { StatusBadge, PriorityBadge } from "@/components/ui/Badge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { TaskDistribution } from "@/components/charts/TaskDistribution";
 import { readProject } from "@/lib/reader";
 import type { TaskSummary } from "@/lib/types";
 
@@ -57,6 +58,14 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           <ProgressBar value={fm.completedCount} max={fm.taskCount} showLabel className="w-32" />
         </div>
       </div>
+
+      {/* Task Distribution Chart */}
+      {project.tasks.length > 0 && (
+        <Card hover={false} padding="md">
+          <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-2">Task Distribution</h3>
+          <TaskDistribution tasks={project.tasks} />
+        </Card>
+      )}
 
       {/* Task Board */}
       {project.tasks.length === 0 ? (

@@ -1,5 +1,7 @@
 "use client";
 
+import { motion } from "motion/react";
+
 interface ScoreGaugeProps {
   score: number;
   size?: number;
@@ -39,8 +41,8 @@ export function ScoreGauge({
             stroke="var(--surface-2)"
             strokeWidth={strokeWidth}
           />
-          {/* Score arc */}
-          <circle
+          {/* Score arc — animated from 0 */}
+          <motion.circle
             cx={size / 2}
             cy={size / 2}
             r={radius}
@@ -49,20 +51,26 @@ export function ScoreGauge({
             strokeWidth={strokeWidth}
             strokeLinecap="round"
             strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            className="transition-all duration-700 ease-out"
+            initial={{ strokeDashoffset: circumference }}
+            animate={{ strokeDashoffset: offset }}
+            transition={{ duration: 0.9, ease: "easeOut", delay: 0.2 }}
             style={{ filter: `drop-shadow(0 0 4px ${color})` }}
           />
         </svg>
         {showValue && (
-          <div className="absolute inset-0 flex items-center justify-center">
+          <motion.div
+            className="absolute inset-0 flex items-center justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3, delay: 0.5 }}
+          >
             <span
               className="font-mono text-sm font-semibold"
               style={{ color }}
             >
               {(score * 100).toFixed(0)}
             </span>
-          </div>
+          </motion.div>
         )}
       </div>
       {label && (

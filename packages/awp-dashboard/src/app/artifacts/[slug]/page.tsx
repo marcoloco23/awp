@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, GitCommit } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { ScoreGauge } from "@/components/ui/ScoreGauge";
+import { ConfidenceRing } from "@/components/charts/ConfidenceRing";
 import { readArtifact } from "@/lib/reader";
 
 export default async function ArtifactDetailPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -40,7 +40,7 @@ export default async function ArtifactDetailPage({ params }: { params: Promise<{
           </div>
         </div>
         {fm.confidence !== undefined && (
-          <ScoreGauge score={fm.confidence} size={64} label="confidence" />
+          <ConfidenceRing confidence={fm.confidence} size={64} />
         )}
       </div>
 

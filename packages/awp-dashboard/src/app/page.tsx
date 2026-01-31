@@ -45,34 +45,40 @@ export default async function DashboardPage() {
           value={stats.projects}
           icon={FolderKanban}
           variant="accent"
+          index={0}
         />
         <MetricCard
           label="Tasks"
           value={stats.tasks.total}
           icon={ListChecks}
           detail={`${stats.tasks.active} active · ${stats.tasks.completed} done`}
+          index={1}
         />
         <MetricCard
           label="Artifacts"
           value={stats.artifacts}
           icon={BookOpen}
+          index={2}
         />
         <MetricCard
           label="Agents"
           value={stats.reputationProfiles}
           icon={Shield}
+          index={3}
         />
         <MetricCard
           label="Contracts"
           value={stats.contracts.total}
           icon={FileText}
           detail={`${stats.contracts.active} active`}
+          index={4}
         />
         <MetricCard
           label="Memory"
           value={stats.memoryLogs}
           icon={Brain}
           detail="daily logs"
+          index={5}
         />
       </div>
 

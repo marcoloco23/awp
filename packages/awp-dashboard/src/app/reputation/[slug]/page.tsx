@@ -5,6 +5,7 @@ import { Card, CardInset } from "@/components/ui/Card";
 import { ScoreGauge } from "@/components/ui/ScoreGauge";
 import { Badge } from "@/components/ui/Badge";
 import { ReputationRadar } from "@/components/charts/ReputationRadar";
+import { ScoreTimeline } from "@/components/charts/ScoreTimeline";
 import { readReputationProfile } from "@/lib/reader";
 
 export default async function ReputationDetailPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -92,6 +93,14 @@ export default async function ReputationDetailPage({ params }: { params: Promise
               </CardInset>
             ))}
           </div>
+        </Card>
+      )}
+
+      {/* Score Timeline */}
+      {profile.signals.length >= 2 && (
+        <Card hover={false} padding="lg">
+          <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-2">Score Timeline</h3>
+          <ScoreTimeline signals={profile.signals} />
         </Card>
       )}
 
