@@ -1,6 +1,6 @@
 {
   "name": "@agent-workspace/dashboard",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "private": true,
   "description": "Human governance dashboard for AWP workspaces",
   "license": "Apache-2.0",

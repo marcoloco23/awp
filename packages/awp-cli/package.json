@@ -1,6 +1,6 @@
 {
   "name": "@agent-workspace/cli",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "description": "CLI for the Agent Workspace Protocol — init, validate, inspect, and manage agent workspaces",
   "license": "Apache-2.0",
   "type": "module",

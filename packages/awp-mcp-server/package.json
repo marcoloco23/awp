@@ -1,6 +1,6 @@
 {
   "name": "@agent-workspace/mcp-server",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "description": "MCP server exposing Agent Workspace Protocol operations — plug any AWP workspace into any MCP client",
   "license": "Apache-2.0",
   "type": "module",

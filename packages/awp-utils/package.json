@@ -1,6 +1,6 @@
 {
   "name": "@agent-workspace/utils",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "description": "Shared utilities for AWP packages — validation, reputation calculations, and frontmatter parsing",
   "license": "Apache-2.0",
   "type": "module",
