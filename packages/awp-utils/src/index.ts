@@ -12,6 +12,14 @@ export {
   validatePath,
   isValidDate,
   isValidTimestamp,
+  // Agent-friendly normalization
+  VALID_TASK_STATUSES,
+  VALID_PROJECT_STATUSES,
+  VALID_PROVENANCE_ACTIONS,
+  VALID_PRIORITIES,
+  normalizeTaskStatus,
+  normalizeProvenanceAction,
+  suggestValidValue,
 } from "./validation.js";
 
 // Reputation utilities

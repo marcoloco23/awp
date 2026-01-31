@@ -1,7 +1,14 @@
 import { writeFile } from "node:fs/promises";
 import { AWP_VERSION, CDP_VERSION } from "@agent-workspace/core";
 import type { TaskFrontmatter } from "@agent-workspace/core";
-import { analyzeGraph, getTaskSlug, type TaskNode } from "@agent-workspace/utils";
+import {
+  analyzeGraph,
+  getTaskSlug,
+  type TaskNode,
+  normalizeTaskStatus,
+  VALID_TASK_STATUSES,
+  suggestValidValue,
+} from "@agent-workspace/utils";
 import { requireWorkspaceRoot } from "../lib/cli-utils.js";
 import { serializeWorkspaceFile } from "../lib/frontmatter.js";
 import {
@@ -190,13 +197,19 @@ export async function taskUpdateCommand(
   const changes: string[] = [];
 
   if (options.status) {
-    const validStatuses = ["pending", "in-progress", "blocked", "review", "completed", "cancelled"];
-    if (!validStatuses.includes(options.status)) {
-      console.error(`Invalid status: ${options.status}. Use: ${validStatuses.join(", ")}`);
+    // Try to normalize the status (accepts common typos like in_progress → in-progress)
+    const normalized = normalizeTaskStatus(options.status);
+    if (!normalized) {
+      const { message } = suggestValidValue(options.status, VALID_TASK_STATUSES);
+      console.error(`Invalid status: "${options.status}". ${message}`);
       process.exit(1);
     }
-    fm.status = options.status as TaskFrontmatter["status"];
-    changes.push(`status → ${options.status}`);
+    // Warn if we auto-corrected
+    if (normalized !== options.status.toLowerCase()) {
+      console.log(`  Note: Normalized "${options.status}" → "${normalized}"`);
+    }
+    fm.status = normalized as TaskFrontmatter["status"];
+    changes.push(`status → ${normalized}`);
   }
 
   if (options.assignee) {

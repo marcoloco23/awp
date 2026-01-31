@@ -65,6 +65,12 @@ import {
   manifestoShowCommand,
   manifestoDiffCommand,
 } from "./commands/manifesto.js";
+import {
+  schemaListCommand,
+  schemaShowCommand,
+  schemaValuesCommand,
+  schemaExampleCommand,
+} from "./commands/schema.js";
 
 const program = new Command();
 
@@ -76,6 +82,8 @@ program
   .description("Initialize a new AWP workspace")
   .argument("[dir]", "Directory to initialize (defaults to cwd)")
   .option("-n, --name <name>", "Workspace name", "my-agent-workspace")
+  .option("--agent-name <name>", "Agent name for examples", "My Agent")
+  .option("-e, --with-examples", "Create example files (recommended for AI agents)")
   .action(initCommand);
 
 // awp validate
@@ -87,6 +95,30 @@ program
 
 // awp inspect
 program.command("inspect").description("Show workspace summary").action(inspectCommand);
+
+// awp schema — Agent-friendly format discovery
+const schema = program.command("schema").description("Discover AWP file formats (for agents)");
+
+schema.command("list").description("List all available schema types").action(schemaListCommand);
+
+schema
+  .command("show")
+  .description("Show schema for a specific type")
+  .argument("<type>", "Schema type (e.g., task, project, knowledge-artifact)")
+  .option("--json", "Output raw JSON schema")
+  .action(schemaShowCommand);
+
+schema
+  .command("values")
+  .description("Show all valid enum values (task status, priorities, etc.)")
+  .option("--json", "Output as JSON (for machine parsing)")
+  .action(schemaValuesCommand);
+
+schema
+  .command("example")
+  .description("Show an example file for a type")
+  .argument("<type>", "Schema type (e.g., task, project)")
+  .action(schemaExampleCommand);
 
 // awp identity
 const identity = program.command("identity").description("Agent identity operations");
@@ -382,6 +414,7 @@ swarm
 program
   .command("status")
   .description("Rich workspace overview — projects, tasks, reputation, health")
+  .option("--json", "Output as JSON (machine-readable for agents)")
   .action(statusCommand);
 
 // awp dashboard

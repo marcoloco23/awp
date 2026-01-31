@@ -7,58 +7,102 @@ import { listProfiles, computeDecayedScore } from "../lib/reputation.js";
 import { listContracts } from "../lib/contract.js";
 import { listProjects, listTasks } from "../lib/project.js";
 
-/**
- * awp status — rich workspace overview
- */
-export async function statusCommand(): Promise<void> {
-  const root = await requireWorkspaceRoot();
-
-  const info = await inspectWorkspace(root);
-  const now = new Date();
-
-  console.log(`AWP Workspace: ${info.manifest.name} (v${AWP_VERSION})`);
-  if (info.manifest.agent.did) {
-    console.log(`DID: ${info.manifest.agent.did}`);
-  }
-  console.log(`Root: ${info.root}`);
-
-  // Projects
-  const projects = await listProjects(root);
-  const activeProjects = projects.filter(
-    (p) => p.frontmatter.status === "active" || p.frontmatter.status === "paused"
-  );
-
-  if (activeProjects.length > 0) {
-    console.log("");
-    console.log("--- Projects ---");
-    for (const p of activeProjects) {
-      const fm = p.frontmatter;
-      const slug = fm.id.replace("project:", "");
-      const tasks = `${fm.completedCount}/${fm.taskCount} tasks`;
-      const deadline = fm.deadline ? `deadline: ${fm.deadline.split("T")[0]}` : "";
-      console.log(
-        `  ${slug.padEnd(24)} ${fm.status.toUpperCase().padEnd(10)} ${tasks.padEnd(14)} ${deadline}`
-      );
-    }
-  }
-
-  // Active tasks across all projects
-  const allTasks: Array<{
+/** Structured status data for JSON output */
+interface StatusData {
+  workspace: {
+    name: string;
+    awp: string;
+    did?: string;
+    root: string;
+  };
+  projects: Array<{
+    slug: string;
+    title: string;
+    status: string;
+    taskCount: number;
+    completedCount: number;
+    deadline?: string;
+  }>;
+  activeTasks: Array<{
     projectSlug: string;
     taskSlug: string;
     status: string;
     assigneeSlug?: string;
     deadline?: string;
     blockedBy: string[];
-  }> = [];
+  }>;
+  reputation: Array<{
+    slug: string;
+    agentName: string;
+    dimensions: Record<string, number>;
+    domainCompetence: Record<string, number>;
+  }>;
+  contracts: {
+    total: number;
+    byStatus: Record<string, number>;
+  };
+  knowledge: {
+    artifactCount: number;
+    memoryLogCount: number;
+  };
+  health: {
+    status: "healthy" | "warnings";
+    warnings: string[];
+  };
+}
 
+/**
+ * awp status — rich workspace overview
+ * Supports --json flag for machine-readable output (agent-friendly)
+ */
+export async function statusCommand(options?: { json?: boolean }): Promise<void> {
+  const root = await requireWorkspaceRoot();
+  const info = await inspectWorkspace(root);
+  const now = new Date();
+  const jsonMode = options?.json ?? false;
+
+  // Initialize structured data
+  const statusData: StatusData = {
+    workspace: {
+      name: info.manifest.name,
+      awp: AWP_VERSION,
+      did: info.manifest.agent.did,
+      root: info.root,
+    },
+    projects: [],
+    activeTasks: [],
+    reputation: [],
+    contracts: { total: 0, byStatus: {} },
+    knowledge: { artifactCount: 0, memoryLogCount: 0 },
+    health: { status: "healthy", warnings: [] },
+  };
+
+  // --- Collect Projects ---
+  const projects = await listProjects(root);
+  const activeProjects = projects.filter(
+    (p) => p.frontmatter.status === "active" || p.frontmatter.status === "paused"
+  );
+
+  for (const p of activeProjects) {
+    const fm = p.frontmatter;
+    statusData.projects.push({
+      slug: fm.id.replace("project:", ""),
+      title: fm.title,
+      status: fm.status,
+      taskCount: fm.taskCount,
+      completedCount: fm.completedCount,
+      deadline: fm.deadline,
+    });
+  }
+
+  // --- Collect Active Tasks ---
   for (const p of activeProjects) {
     const pSlug = p.frontmatter.id.replace("project:", "");
     const tasks = await listTasks(root, pSlug);
     for (const t of tasks) {
       const tfm = t.frontmatter;
       if (tfm.status === "in-progress" || tfm.status === "blocked" || tfm.status === "review") {
-        allTasks.push({
+        statusData.activeTasks.push({
           projectSlug: pSlug,
           taskSlug: tfm.id.split("/")[1],
           status: tfm.status,
@@ -70,89 +114,54 @@ export async function statusCommand(): Promise<void> {
     }
   }
 
-  if (allTasks.length > 0) {
-    console.log("");
-    console.log("--- Active Tasks ---");
-    for (const t of allTasks) {
-      const assignee = t.assigneeSlug ? `@${t.assigneeSlug}` : "unassigned";
-      const due = t.deadline ? `due ${t.deadline.split("T")[0]}` : "";
-      const blocked =
-        t.status === "blocked" && t.blockedBy.length > 0
-          ? `blocked by: ${t.blockedBy.map((b) => b.split("/").pop()).join(", ")}`
-          : "";
-      const extra = blocked || due;
-      console.log(
-        `  ${t.taskSlug.padEnd(24)} ${t.status.toUpperCase().padEnd(14)} ${assignee.padEnd(20)} ${extra}`
-      );
-    }
-  }
-
-  // Reputation
+  // --- Collect Reputation ---
   const profiles = await listProfiles(root);
-  if (profiles.length > 0) {
-    console.log("");
-    console.log("--- Reputation ---");
-    for (const p of profiles) {
-      const fm = p.frontmatter;
-      const slug = fm.id.replace("reputation:", "");
-      const parts: string[] = [];
+  for (const p of profiles) {
+    const fm = p.frontmatter;
+    const dimensions: Record<string, number> = {};
+    const domainCompetence: Record<string, number> = {};
 
-      // Top dimension scores
-      for (const [name, dim] of Object.entries(fm.dimensions || {})) {
-        const decayed = computeDecayedScore(dim, now);
-        parts.push(`${name}: ${decayed.toFixed(2)}`);
-      }
-      for (const [name, dim] of Object.entries(fm.domainCompetence || {})) {
-        const decayed = computeDecayedScore(dim, now);
-        parts.push(`${name}: ${decayed.toFixed(2)}`);
-      }
-
-      console.log(`  ${slug.padEnd(20)} ${parts.join("   ")}`);
+    for (const [name, dim] of Object.entries(fm.dimensions || {})) {
+      dimensions[name] = computeDecayedScore(dim, now);
     }
+    for (const [name, dim] of Object.entries(fm.domainCompetence || {})) {
+      domainCompetence[name] = computeDecayedScore(dim, now);
+    }
+
+    statusData.reputation.push({
+      slug: fm.id.replace("reputation:", ""),
+      agentName: fm.agentName,
+      dimensions,
+      domainCompetence,
+    });
   }
 
-  // Contracts
+  // --- Collect Contracts ---
   const contracts = await listContracts(root);
-  if (contracts.length > 0) {
-    const statusCounts: Record<string, number> = {};
-    for (const c of contracts) {
-      const s = c.frontmatter.status;
-      statusCounts[s] = (statusCounts[s] || 0) + 1;
-    }
-    const summary = Object.entries(statusCounts)
-      .map(([s, n]) => `${n} ${s}`)
-      .join(", ");
-    console.log("");
-    console.log("--- Contracts ---");
-    console.log(`  ${summary}`);
+  statusData.contracts.total = contracts.length;
+  for (const c of contracts) {
+    const s = c.frontmatter.status;
+    statusData.contracts.byStatus[s] = (statusData.contracts.byStatus[s] || 0) + 1;
   }
 
-  // Knowledge
-  let artifactCount = 0;
+  // --- Collect Knowledge ---
   try {
     const artDir = join(root, ARTIFACTS_DIR);
     const files = await readdir(artDir);
-    artifactCount = files.filter((f) => f.endsWith(".md")).length;
+    statusData.knowledge.artifactCount = files.filter((f) => f.endsWith(".md")).length;
   } catch {
     // no artifacts dir
   }
 
-  let memoryCount = 0;
   try {
     const memDir = join(root, MEMORY_DIR);
     const files = await readdir(memDir);
-    memoryCount = files.filter((f) => f.endsWith(".md")).length;
+    statusData.knowledge.memoryLogCount = files.filter((f) => f.endsWith(".md")).length;
   } catch {
     // no memory dir
   }
 
-  if (artifactCount > 0 || memoryCount > 0) {
-    console.log("");
-    console.log("--- Knowledge ---");
-    console.log(`  ${artifactCount} artifact(s), ${memoryCount} memory log(s)`);
-  }
-
-  // Health checks
+  // --- Health Checks ---
   const warnings: string[] = [];
 
   // Check required files
@@ -188,26 +197,104 @@ export async function statusCommand(): Promise<void> {
   }
 
   // Check task deadlines
-  for (const t of allTasks) {
-    if (
-      t.deadline &&
-      t.status !== "completed" &&
-      t.status !== "cancelled" &&
-      new Date(t.deadline) < now
-    ) {
+  for (const t of statusData.activeTasks) {
+    if (t.deadline && t.status !== "completed" && new Date(t.deadline) < now) {
       warnings.push(`Task "${t.taskSlug}" is past deadline`);
     }
   }
 
+  statusData.health.warnings = warnings;
+  statusData.health.status = warnings.length === 0 ? "healthy" : "warnings";
+
+  // --- Output ---
+  if (jsonMode) {
+    console.log(JSON.stringify(statusData, null, 2));
+    return;
+  }
+
+  // Human-readable output
+  console.log(`AWP Workspace: ${statusData.workspace.name} (v${statusData.workspace.awp})`);
+  if (statusData.workspace.did) {
+    console.log(`DID: ${statusData.workspace.did}`);
+  }
+  console.log(`Root: ${statusData.workspace.root}`);
+
+  // Projects
+  if (statusData.projects.length > 0) {
+    console.log("");
+    console.log("--- Projects ---");
+    for (const p of statusData.projects) {
+      const tasks = `${p.completedCount}/${p.taskCount} tasks`;
+      const deadline = p.deadline ? `deadline: ${p.deadline.split("T")[0]}` : "";
+      console.log(
+        `  ${p.slug.padEnd(24)} ${p.status.toUpperCase().padEnd(10)} ${tasks.padEnd(14)} ${deadline}`
+      );
+    }
+  }
+
+  // Active tasks
+  if (statusData.activeTasks.length > 0) {
+    console.log("");
+    console.log("--- Active Tasks ---");
+    for (const t of statusData.activeTasks) {
+      const assignee = t.assigneeSlug ? `@${t.assigneeSlug}` : "unassigned";
+      const due = t.deadline ? `due ${t.deadline.split("T")[0]}` : "";
+      const blocked =
+        t.status === "blocked" && t.blockedBy.length > 0
+          ? `blocked by: ${t.blockedBy.map((b) => b.split("/").pop()).join(", ")}`
+          : "";
+      const extra = blocked || due;
+      console.log(
+        `  ${t.taskSlug.padEnd(24)} ${t.status.toUpperCase().padEnd(14)} ${assignee.padEnd(20)} ${extra}`
+      );
+    }
+  }
+
+  // Reputation
+  if (statusData.reputation.length > 0) {
+    console.log("");
+    console.log("--- Reputation ---");
+    for (const r of statusData.reputation) {
+      const parts: string[] = [];
+      for (const [name, score] of Object.entries(r.dimensions)) {
+        parts.push(`${name}: ${score.toFixed(2)}`);
+      }
+      for (const [name, score] of Object.entries(r.domainCompetence)) {
+        parts.push(`${name}: ${score.toFixed(2)}`);
+      }
+      console.log(`  ${r.slug.padEnd(20)} ${parts.join("   ")}`);
+    }
+  }
+
+  // Contracts
+  if (statusData.contracts.total > 0) {
+    const summary = Object.entries(statusData.contracts.byStatus)
+      .map(([s, n]) => `${n} ${s}`)
+      .join(", ");
+    console.log("");
+    console.log("--- Contracts ---");
+    console.log(`  ${summary}`);
+  }
+
+  // Knowledge
+  if (statusData.knowledge.artifactCount > 0 || statusData.knowledge.memoryLogCount > 0) {
+    console.log("");
+    console.log("--- Knowledge ---");
+    console.log(
+      `  ${statusData.knowledge.artifactCount} artifact(s), ${statusData.knowledge.memoryLogCount} memory log(s)`
+    );
+  }
+
+  // Health
   console.log("");
   console.log("--- Health ---");
-  if (warnings.length === 0 && allRequired) {
+  if (statusData.health.status === "healthy") {
     console.log("  [PASS] All systems nominal");
   } else {
     if (allRequired) {
       console.log("  [PASS] All required files present");
     }
-    for (const w of warnings) {
+    for (const w of statusData.health.warnings) {
       console.log(`  [WARN] ${w}`);
     }
   }
