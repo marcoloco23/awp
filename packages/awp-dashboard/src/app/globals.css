@@ -1,0 +1,342 @@
+@import "tailwindcss";
+
+/* ============================================================================
+   AWP GOVERNANCE DASHBOARD — "Mission Control" Design System
+   ============================================================================
+   Dark-first. Data-dense. Terminal-meets-command-center aesthetic.
+   Glowing accent lines, subtle scan textures, monospace data readouts.
+   ============================================================================ */
+
+/* --- Design Tokens (Dark — Default) --- */
+:root {
+  --surface-0: #06090f;
+  --surface-1: #0d1117;
+  --surface-2: #151b25;
+  --surface-3: #1c2433;
+  --border: #1e2d3d;
+  --border-subtle: #141d2a;
+  --border-glow: rgba(96, 165, 250, 0.15);
+
+  --text-primary: #e2e8f0;
+  --text-secondary: #7b8da4;
+  --text-muted: #3d4f63;
+  --text-inverse: #06090f;
+
+  --accent: #60a5fa;
+  --accent-dim: #2563eb;
+  --accent-glow: rgba(96, 165, 250, 0.08);
+  --accent-glow-strong: rgba(96, 165, 250, 0.2);
+
+  --success: #34d399;
+  --success-dim: rgba(52, 211, 153, 0.12);
+  --warning: #fbbf24;
+  --warning-dim: rgba(251, 191, 36, 0.12);
+  --danger: #f87171;
+  --danger-dim: rgba(248, 113, 113, 0.12);
+  --info: #60a5fa;
+  --info-dim: rgba(96, 165, 250, 0.12);
+
+  --rep-high: #34d399;
+  --rep-mid: #fbbf24;
+  --rep-low: #f87171;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  --sidebar-width: 240px;
+  --header-height: 56px;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", monospace;
+
+  color-scheme: dark;
+}
+
+/* --- Light Theme Override --- */
+[data-theme="light"] {
+  --surface-0: #f5f7fa;
+  --surface-1: #ffffff;
+  --surface-2: #f0f2f5;
+  --surface-3: #e8ebf0;
+  --border: #d5dbe3;
+  --border-subtle: #e2e6eb;
+  --border-glow: rgba(59, 130, 246, 0.12);
+
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+  --text-inverse: #ffffff;
+
+  --accent: #3b82f6;
+  --accent-dim: #1d4ed8;
+  --accent-glow: rgba(59, 130, 246, 0.06);
+  --accent-glow-strong: rgba(59, 130, 246, 0.15);
+
+  --success: #10b981;
+  --success-dim: rgba(16, 185, 129, 0.08);
+  --warning: #f59e0b;
+  --warning-dim: rgba(245, 158, 11, 0.08);
+  --danger: #ef4444;
+  --danger-dim: rgba(239, 68, 68, 0.08);
+  --info: #3b82f6;
+  --info-dim: rgba(59, 130, 246, 0.08);
+
+  --rep-high: #10b981;
+  --rep-mid: #f59e0b;
+  --rep-low: #ef4444;
+
+  color-scheme: light;
+}
+
+/* --- Base Reset --- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--surface-0);
+  color: var(--text-primary);
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--surface-0);
+}
+
+/* --- Scanline Background Texture (Dark only) --- */
+:root body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(96, 165, 250, 0.01) 2px,
+    rgba(96, 165, 250, 0.01) 4px
+  );
+  mix-blend-mode: screen;
+}
+
+[data-theme="light"] body::before {
+  display: none;
+}
+
+/* --- Scrollbar --- */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* --- Typography Utilities --- */
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+.text-display {
+  font-size: 2.5rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.text-headline {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.text-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+}
+
+.text-body {
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.text-caption {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.text-data {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Card System --- */
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 1px var(--border-glow),
+    0 4px 24px -4px rgba(0, 0, 0, 0.3);
+}
+
+.card-inset {
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+/* --- Glow Effects --- */
+.glow-line {
+  position: relative;
+}
+
+.glow-line::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--accent) 20%,
+    var(--accent) 80%,
+    transparent
+  );
+  opacity: 0.4;
+}
+
+.glow-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent), 0 0 16px rgba(96, 165, 250, 0.3);
+}
+
+/* --- Status Colors --- */
+.status-active { color: var(--success); }
+.status-pending { color: var(--text-secondary); }
+.status-blocked { color: var(--danger); }
+.status-review { color: var(--warning); }
+.status-completed { color: var(--success); }
+.status-draft { color: var(--text-muted); }
+.status-paused { color: var(--warning); }
+.status-cancelled { color: var(--text-muted); }
+
+/* --- Priority Indicators --- */
+.priority-critical { --priority-color: var(--danger); }
+.priority-high { --priority-color: #f97316; }
+.priority-medium { --priority-color: var(--accent); }
+.priority-low { --priority-color: var(--text-muted); }
+
+/* --- Page Transition --- */
+.page-enter {
+  animation: pageEnter 0.35s ease-out;
+}
+
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --- Stagger Children --- */
+.stagger-children > * {
+  animation: fadeUp 0.4s ease-out both;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 300ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 350ms; }
+.stagger-children > *:nth-child(9) { animation-delay: 400ms; }
+.stagger-children > *:nth-child(10) { animation-delay: 450ms; }
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --- Reduced Motion --- */
+@media (prefers-reduced-motion: reduce) {
+  .page-enter,
+  .stagger-children > * {
+    animation: none !important;
+  }
+}
+
+/* --- Selection --- */
+::selection {
+  background: var(--accent);
+  color: var(--text-inverse);
+}
+
+/* --- Focus Visible --- */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* --- Link Reset --- */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* --- Recharts Overrides --- */
+.recharts-polar-grid-concentric circle {
+  stroke: var(--border) !important;
+}
+.recharts-polar-angle-axis-tick-value {
+  fill: var(--text-secondary) !important;
+  font-size: 11px !important;
+}
+.recharts-default-tooltip {
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-md) !important;
+}

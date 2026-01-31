@@ -1,6 +1,6 @@
 {
   "name": "@agent-workspace/core",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Core types, constants, and schemas for the Agent Workspace Protocol",
   "license": "Apache-2.0",
   "type": "module",

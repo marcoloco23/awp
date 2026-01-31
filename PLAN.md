@@ -14,8 +14,8 @@ Build the operating system for an agent economy, not another app inside it.
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│              Human Governance Layer                  │
-│         dashboards · veto · escalation · audit       │
+│           Human Governance Layer (Phase 5) ✅         │
+│     dashboard · metrics · audit · visual governance   │
 ├─────────────────────────────────────────────────────┤
 │           Coordination Layer (Phase 4) ✅             │
 │   projects · tasks · authority merge · status        │
@@ -73,20 +73,23 @@ AWP is complementary to all existing protocols, competitive with none. It sits b
 - EWMA score updates (α=0.15), time-based decay (0.02/month, floor 0.5), confidence from sample size
 - Contract evaluation automatically generates reputation signals for delegate
 
-## What's Built (Phase 4 Primitives — Complete)
+## What's Built (Phase 4 — Complete)
 
 ### Coordination Protocol (CDP)
 - `spec/cdp/cdp-spec.md` — Full CDP specification (projects, tasks, member roles, reputation gates, authority merge)
 - `spec/schemas/project.schema.json` — Project JSON Schema
 - `spec/schemas/task.schema.json` — Task JSON Schema
-- Core types: `ProjectFrontmatter`, `ProjectMember`, `TaskFrontmatter`
-- CLI: `awp project create|list|show|close` + `awp task create|list|update|show` + `awp status`
-- MCP: `awp_project_create`, `awp_project_list`, `awp_project_status`, `awp_task_create`, `awp_task_update`, `awp_task_list`, `awp_artifact_merge`
+- `spec/schemas/swarm.schema.json` — Swarm JSON Schema
+- Core types: `ProjectFrontmatter`, `ProjectMember`, `TaskFrontmatter`, `SwarmFrontmatter`, `SwarmRole`, `SwarmGovernance`
+- CLI: `awp project create|list|show|close` + `awp task create|list|update|show|graph` + `awp swarm create|list|show|update|recruit` + `awp status`
+- MCP: `awp_project_*`, `awp_task_*` (including `awp_task_graph`), `awp_swarm_*` tools
 - Enhanced `awp_workspace_status` with project/task data and health warnings
 - Authority merge strategy for artifacts (uses reputation to order conflicting content)
-- Expanded `awp validate` — scans all content directories (artifacts, reputation, contracts, projects, tasks)
+- Expanded `awp validate` — scans all content directories (artifacts, reputation, contracts, projects, tasks, swarms)
 - Reputation-gated task assignments (advisory warnings, not blocking)
-- Task dependencies (blockedBy/blocks) with downstream warnings
+- Task dependencies (blockedBy/blocks) with dependency graph analysis
+- Dependency graph engine with topological sort, cycle detection, critical path
+- Swarm definitions with dynamic role recruitment based on reputation
 
 ---
 
@@ -110,55 +113,67 @@ Multi-dimensional reputation profiles with EWMA scoring, time-based decay, deleg
 
 ---
 
-## Phase 4: Coordination Protocol — ✅ Primitives Complete (v0.4.0)
+## What's Built (Phase 5 — Complete)
 
-Projects, tasks, authority merge, rich status. See `spec/cdp/cdp-spec.md`.
-
-**Deferred to future:**
-- Dependency graph traversal / topological sort (cycle detection)
-- Swarm definitions with dynamic role recruitment
-- Shared lib extraction to awp-core (refactoring)
-- MCP server modularization into tool files
+### Human Governance Dashboard
+- `packages/awp-dashboard/` — Next.js 15 App Router dashboard (private package, not published to npm)
+- Custom "Protocol Blue" design system with dark/light themes
+- 8 pages: overview, projects (with kanban task board), reputation (with radar chart), artifacts (with provenance timeline), contracts, memory
+- 11 JSON API routes for programmatic access
+- Direct filesystem reads via Server Components (no API hop)
+- Recharts visualizations, Score gauges, responsive layout
+- `AWP_WORKSPACE` env var points to workspace directory
 
 ---
 
-## Phase 5: Coordination Platform (Next)
+## Phase 4: Coordination Protocol — ✅ Complete (v0.4.1)
 
-**Problem:** CDP v1.0 provides single-workspace coordination primitives but the platform needs dynamic multi-agent orchestration, visual governance, and cross-workspace communication.
+Projects, tasks, authority merge, rich status. See `spec/cdp/cdp-spec.md`.
 
-**What to build:**
+### v0.4.1 Additions
+- **Dependency Graph Engine** — `awp task graph <project>` with topological sort, cycle detection, critical path analysis
+- **Swarm Definitions** — Multi-agent composition with reputation-gated role recruitment
+  - `awp swarm create|list|show|update`
+  - `awp swarm role add` with reputation requirements
+  - `awp swarm recruit [--auto]` for dynamic agent assignment
+  - `spec/schemas/swarm.schema.json` — Swarm JSON Schema
+- **Shared Library Extraction** — Pure logic moved to `@agent-workspace/utils`
+- **MCP Server Modularization** — Split into tool modules for maintainability
 
-### Agent Swarm Definitions
-Dynamic multi-agent composition with role recruitment based on reputation:
-```yaml
-type: "swarm"
-goal: "Complete Q3 product launch"
-governance:
-  human_lead: "user:marc"
-  veto_power: true
-roles:
-  researcher: { min_reputation: { ai-research: 0.8 } }
-  writer: { min_reputation: { technical-writing: 0.7 } }
-```
+---
 
-### Dependency Graph Engine
-- Topological sort for task ordering
-- Cycle detection and reporting
-- Automatic status propagation (blocked ← dependency)
-- Critical path analysis
+## Phase 5: Human Governance Dashboard — ✅ Complete (v0.5.0)
 
-### Human Governance Dashboard (Next.js)
-- Agent roster with reputation profiles
-- Project task boards with dependency graphs
-- Knowledge artifact browser with version history
-- Escalation queue for items requiring human decision
-- Full audit trail
+**Problem:** CDP provides single-workspace coordination primitives but humans interact through CLI or MCP tools. A visual dashboard makes the workspace legible at a glance — essential for human governance of agent work.
 
-### Components
-- `packages/awp-dashboard/` — Next.js governance dashboard
+**What's done (moved from Phase 5 to Phase 4):**
+- ✅ Swarm definitions with dynamic role recruitment
+- ✅ Dependency graph engine (topological sort, cycle detection, critical path)
+
+**What's built in v0.5.0:**
+
+### Human Governance Dashboard (`packages/awp-dashboard/`)
+- Next.js 15 App Router with Server Components reading filesystem directly
+- Custom "Protocol Blue" design system: dark-first palette, Inter + JetBrains Mono fonts
+- 8 pages: overview, projects, project detail (kanban task board), reputation roster, agent profile, artifacts, artifact detail (provenance timeline), contracts, memory
+- 11 JSON API routes as secondary data interface
+- Agent identity card with health warnings and workspace metrics
+- Reputation profiles with Recharts RadarChart visualization
+- Score gauges, progress bars, and dimension breakdowns with decayed scores
+- Task boards with 5 kanban columns (pending → completed), priority-colored indicators
+- Knowledge artifact browser with confidence bars and provenance timelines
+- Contract list with weighted evaluation scores
+- Memory timeline with daily log entries and long-term memory
+- Dark/light theme toggle with localStorage persistence
+- Responsive layout with collapsible sidebar
+- Graceful empty states for workspaces with no data
+
+### What's next (Phase 6):
+- `packages/awp-sync/` — Workspace-to-workspace artifact sync
 - A2A integration for inter-agent task routing
 - AG-UI integration for real-time agent status streaming
-- `packages/awp-sync/` — Workspace-to-workspace sync
+- Dashboard write operations (currently read-only)
+- Real-time updates / WebSocket
 
 ---
 
@@ -200,10 +215,11 @@ awp/                           # Public repo: github.com/marcoloco23/awp
 
   packages/
     awp-core/                  # Shared types, constants, schemas ✅
+    awp-utils/                 # Shared utilities (validation, reputation math) ✅
     awp-cli/                   # CLI tool ✅
     awp-mcp-server/            # MCP server ✅
-    awp-sync/                  # Phase 5: Workspace-to-workspace sync
-    awp-dashboard/             # Phase 5: Human governance dashboard
+    awp-dashboard/             # Human governance dashboard ✅
+    awp-sync/                  # Phase 6: Workspace-to-workspace sync
 
   templates/
     clawd/                     # Reference workspace template ✅

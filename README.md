@@ -24,6 +24,8 @@ your-agent/
     q3-launch.md
     q3-launch/tasks/
       competitive-analysis.md
+  swarms/                # Multi-agent composition (CDP)
+    q3-launch-team.md
 ```
 
 Every file is valid Markdown (human-readable) with structured YAML frontmatter (machine-parseable). No database, no server, no runtime. Just files in a directory, compatible with Git by default.
@@ -66,8 +68,29 @@ AWP sits below all other protocols — defining what the agent *is*, while they 
 | Package | Description | Install |
 |---------|-------------|---------|
 | [@agent-workspace/core](packages/awp-core/) | Types, constants, JSON schemas | `npm i @agent-workspace/core` |
-| [@agent-workspace/cli](packages/awp-cli/) | CLI tool (init, validate, inspect, status, identity, memory, artifact, reputation, contract, project, task) | `npm i -g @agent-workspace/cli` |
+| [@agent-workspace/utils](packages/awp-utils/) | Shared utilities (validation, reputation math) | `npm i @agent-workspace/utils` |
+| [@agent-workspace/cli](packages/awp-cli/) | CLI tool (init, validate, inspect, status, identity, memory, artifact, reputation, contract, project, task, swarm) | `npm i -g @agent-workspace/cli` |
 | [@agent-workspace/mcp-server](packages/awp-mcp-server/) | MCP server for any MCP-compatible client | `npm i @agent-workspace/mcp-server` |
+| [@agent-workspace/dashboard](packages/awp-dashboard/) | Human governance dashboard (Next.js) | Private — run locally |
+
+## Dashboard
+
+Visual governance layer for AWP workspaces. Reads workspace files from disk and displays agent identity, projects, tasks, reputation, artifacts, contracts, and memory.
+
+```bash
+# Run the dashboard (point to a workspace)
+AWP_WORKSPACE=/path/to/workspace npm run dev --workspace=packages/awp-dashboard
+
+# Opens at http://localhost:3000
+```
+
+Pages:
+- **Overview** — Agent identity, health warnings, workspace metrics, active tasks
+- **Projects** — Project list with progress bars, detail pages with kanban task boards
+- **Reputation** — Agent roster with score gauges, profile pages with radar charts
+- **Artifacts** — Knowledge browser with confidence bars, detail with provenance timelines
+- **Contracts** — Delegation contracts with evaluation scores
+- **Memory** — Daily log timeline with long-term memory
 
 ## MCP Server
 
@@ -101,7 +124,14 @@ Tools exposed:
 - `awp_task_create` — Create a task within a project
 - `awp_task_update` — Update task status or assignee
 - `awp_task_list` — List tasks for a project
+- `awp_task_graph` — Analyze task dependencies (topological sort, cycles, critical path)
 - `awp_artifact_merge` — Merge artifacts (additive or authority strategy)
+- `awp_swarm_create` — Create a multi-agent swarm
+- `awp_swarm_list` — List swarms with status filter
+- `awp_swarm_show` — Show swarm details and staffing
+- `awp_swarm_recruit` — Find candidates for unfilled roles
+- `awp_swarm_assign` — Assign agent to swarm role
+- `awp_swarm_role_add` — Add a role to a swarm
 - `awp_workspace_status` — Workspace summary with health warnings
 
 ## Reputation & Delegation (RDP)
@@ -161,7 +191,59 @@ awp status
 awp artifact merge target-slug source-slug --strategy authority
 ```
 
-Project members can have `minReputation` thresholds — when assigning a task, the system checks the assignee's reputation and warns if below threshold. See [spec/cdp/cdp-spec.md](spec/cdp/cdp-spec.md) for the Coordination Protocol specification.
+Project members can have `minReputation` thresholds — when assigning a task, the system checks the assignee's reputation and warns if below threshold.
+
+### Task Dependencies
+
+Analyze task dependency graphs with topological sorting, cycle detection, and critical path analysis:
+
+```bash
+# Analyze dependencies for a project
+awp task graph q3-launch
+
+# Check for dependency cycles (exits with error if found)
+awp task graph q3-launch --check
+
+# JSON output for programmatic use
+awp task graph q3-launch --json
+```
+
+## Swarms (Multi-Agent Coordination)
+
+Compose multi-agent teams with reputation-gated role recruitment:
+
+```bash
+# Create a swarm
+awp swarm create q3-launch-team \
+  --name "Q3 Launch Team" \
+  --goal "Complete Q3 product launch" \
+  --project q3-launch
+
+# Add roles with reputation requirements
+awp swarm role add q3-launch-team researcher \
+  --count 1 \
+  --min-reputation reliability:0.7 \
+  --min-reputation domain-competence:ai-research:0.8
+
+awp swarm role add q3-launch-team writer \
+  --count 2 \
+  --min-reputation technical-writing:0.7
+
+# Find qualified candidates from reputation profiles
+awp swarm recruit q3-launch-team
+
+# Auto-assign best qualified candidates
+awp swarm recruit q3-launch-team --auto
+
+# View swarm status
+awp swarm show q3-launch-team
+
+# List all swarms
+awp swarm list
+awp swarm list --status recruiting
+```
+
+Swarms automatically transition from `recruiting` to `active` status when all roles are filled. See [spec/cdp/cdp-spec.md](spec/cdp/cdp-spec.md) for the Coordination Protocol specification.
 
 ## File Format
 

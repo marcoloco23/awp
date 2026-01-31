@@ -2,18 +2,11 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { ARTIFACTS_DIR } from "@agent-workspace/core";
 import type { ArtifactFrontmatter } from "@agent-workspace/core";
-import { parseWorkspaceFile } from "./frontmatter.js";
 import type { WorkspaceFile } from "@agent-workspace/core";
-import { loadManifest } from "./workspace.js";
+import { validateSlug, parseWorkspaceFile, getAgentDid } from "@agent-workspace/utils";
 
-const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
-
-/**
- * Validate an artifact slug
- */
-export function validateSlug(slug: string): boolean {
-  return SLUG_PATTERN.test(slug);
-}
+// Re-export from @agent-workspace/utils for backwards compatibility
+export { validateSlug, getAgentDid };
 
 /**
  * Convert a slug to an artifact ID
@@ -76,16 +69,4 @@ export async function listArtifacts(
   }
 
   return artifacts;
-}
-
-/**
- * Get the agent DID from the workspace manifest, or "anonymous" if not set
- */
-export async function getAgentDid(workspaceRoot: string): Promise<string> {
-  try {
-    const manifest = await loadManifest(workspaceRoot);
-    return manifest.agent.did || "anonymous";
-  } catch {
-    return "anonymous";
-  }
 }

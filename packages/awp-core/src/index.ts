@@ -38,6 +38,8 @@ export type {
 
 export type { ProjectFrontmatter, ProjectMember, TaskFrontmatter } from "./types/project.js";
 
+export type { SwarmFrontmatter, SwarmRole, SwarmGovernance } from "./types/swarm.js";
+
 export {
   AWP_VERSION,
   SMP_VERSION,
@@ -52,6 +54,7 @@ export {
   REPUTATION_DIR,
   CONTRACTS_DIR,
   PROJECTS_DIR,
+  SWARMS_DIR,
   FILE_TYPE_MAP,
   SCHEMA_MAP,
   SCHEMAS_DIR,

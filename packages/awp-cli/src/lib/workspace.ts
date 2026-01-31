@@ -1,13 +1,15 @@
-import { readFile, access } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import {
-  MANIFEST_PATH,
   REQUIRED_FILES,
   OPTIONAL_FILES,
   AWP_VERSION,
   type WorkspaceManifest,
 } from "@agent-workspace/core";
+import { findWorkspaceRoot, loadManifest, fileExists } from "@agent-workspace/utils";
 import { parseWorkspaceFile } from "./frontmatter.js";
+
+// Re-export from @agent-workspace/utils
+export { findWorkspaceRoot, loadManifest, fileExists };
 
 export interface WorkspaceInfo {
   root: string;
@@ -16,46 +18,6 @@ export interface WorkspaceInfo {
     required: { file: string; exists: boolean; valid: boolean }[];
     optional: { file: string; exists: boolean }[];
   };
-}
-
-/**
- * Find workspace root by walking up from cwd looking for .awp/workspace.json
- */
-export async function findWorkspaceRoot(startDir?: string): Promise<string | null> {
-  let dir = resolve(startDir || process.cwd());
-  const root = resolve("/");
-
-  while (dir !== root) {
-    const manifestPath = join(dir, MANIFEST_PATH);
-    try {
-      await access(manifestPath);
-      return dir;
-    } catch {
-      dir = resolve(dir, "..");
-    }
-  }
-  return null;
-}
-
-/**
- * Load workspace manifest
- */
-export async function loadManifest(workspaceRoot: string): Promise<WorkspaceManifest> {
-  const manifestPath = join(workspaceRoot, MANIFEST_PATH);
-  const raw = await readFile(manifestPath, "utf-8");
-  return JSON.parse(raw) as WorkspaceManifest;
-}
-
-/**
- * Check if a file exists
- */
-async function fileExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /**

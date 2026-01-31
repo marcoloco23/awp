@@ -48,6 +48,9 @@ export const CONTRACTS_DIR = "contracts";
 /** Projects directory */
 export const PROJECTS_DIR = "projects";
 
+/** Swarms directory */
+export const SWARMS_DIR = "swarms";
+
 /** File type to filename mapping */
 export const FILE_TYPE_MAP: Record<string, string> = {
   identity: "IDENTITY.md",
@@ -62,6 +65,7 @@ export const FILE_TYPE_MAP: Record<string, string> = {
   "delegation-contract": "contracts/",
   project: "projects/",
   task: "projects/",
+  swarm: "swarms/",
 };
 
 /**
@@ -92,6 +96,7 @@ export const SCHEMA_MAP: Record<string, string> = {
   "delegation-contract": "delegation-contract.schema.json",
   project: "project.schema.json",
   task: "task.schema.json",
+  swarm: "swarm.schema.json",
 };
 
 // ============================================================================

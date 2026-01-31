@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .turbo/
+.next/
 
 # AWP private keys (NEVER commit these)
 .awp/private-key.pem
@@ -15,7 +16,7 @@ AGENTS.md
 HEARTBEAT.md
 TOOLS.md
 .awp/workspace.json
-memory/
+/memory/
 
 # OS files
 .DS_Store

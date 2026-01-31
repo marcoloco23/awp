@@ -340,7 +340,9 @@ export async function artifactMergeCommand(
     const sharedTags = (tfm.tags ?? []).filter((t) => (sfm.tags ?? []).includes(t));
 
     if (sharedTags.length === 0) {
-      console.log("Warning: No shared tags between artifacts. Using reliability dimension as fallback.");
+      console.log(
+        "Warning: No shared tags between artifacts. Using reliability dimension as fallback."
+      );
     }
 
     const targetAuthor = tfm.authors[0] || "anonymous";

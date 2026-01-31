@@ -5,25 +5,24 @@ import {
   REPUTATION_EWMA_ALPHA,
   REPUTATION_DECAY_RATE,
   REPUTATION_BASELINE,
-  MS_PER_MONTH,
 } from "@agent-workspace/core";
-import type { ReputationProfileFrontmatter, ReputationDimension } from "@agent-workspace/core";
-import { parseWorkspaceFile } from "./frontmatter.js";
+import type { ReputationProfileFrontmatter } from "@agent-workspace/core";
 import type { WorkspaceFile } from "@agent-workspace/core";
+import {
+  computeConfidence,
+  computeDecayedScore,
+  updateDimension,
+  validateSlug,
+  parseWorkspaceFile,
+} from "@agent-workspace/utils";
 
-const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
+// Re-export from @agent-workspace/utils for backwards compatibility
+export { computeConfidence, computeDecayedScore, updateDimension, validateSlug };
 
 // Re-export constants for backwards compatibility
 export const DEFAULT_ALPHA = REPUTATION_EWMA_ALPHA;
 export const DEFAULT_DECAY_RATE = REPUTATION_DECAY_RATE;
 export const SCORE_FLOOR = REPUTATION_BASELINE;
-
-/**
- * Validate a reputation slug
- */
-export function validateSlug(slug: string): boolean {
-  return SLUG_PATTERN.test(slug);
-}
 
 /**
  * Get the file path for a reputation profile slug
@@ -72,67 +71,4 @@ export async function listProfiles(
   }
 
   return profiles;
-}
-
-/**
- * Apply time-based decay to a score.
- * Scores decay toward 0.5 (unknown baseline).
- */
-export function computeDecayedScore(
-  dim: ReputationDimension,
-  now: Date = new Date(),
-  decayRate: number = DEFAULT_DECAY_RATE
-): number {
-  const lastSignalDate = new Date(dim.lastSignal);
-  const monthsElapsed = (now.getTime() - lastSignalDate.getTime()) / MS_PER_MONTH;
-
-  if (monthsElapsed <= 0) return dim.score;
-
-  const decayFactor = Math.exp(-decayRate * monthsElapsed);
-
-  // Decay toward 0.5 (unknown baseline)
-  const decayed = SCORE_FLOOR + (dim.score - SCORE_FLOOR) * decayFactor;
-
-  return Math.round(decayed * 1000) / 1000;
-}
-
-/**
- * Update a dimension with a new signal using EWMA.
- */
-export function updateDimension(
-  existing: ReputationDimension | undefined,
-  signalScore: number,
-  now: Date = new Date(),
-  alpha: number = DEFAULT_ALPHA
-): ReputationDimension {
-  const timestamp = now.toISOString();
-
-  if (!existing) {
-    return {
-      score: signalScore,
-      confidence: computeConfidence(1),
-      sampleSize: 1,
-      lastSignal: timestamp,
-    };
-  }
-
-  // Apply decay to old score before EWMA
-  const decayed = computeDecayedScore(existing, now);
-  const newScore = alpha * signalScore + (1 - alpha) * decayed;
-  const newSampleSize = existing.sampleSize + 1;
-
-  return {
-    score: Math.round(newScore * 1000) / 1000,
-    confidence: computeConfidence(newSampleSize),
-    sampleSize: newSampleSize,
-    lastSignal: timestamp,
-  };
-}
-
-/**
- * Compute confidence from sample size.
- * confidence = 1 - 1/(1 + sampleSize * 0.1)
- */
-export function computeConfidence(sampleSize: number): number {
-  return Math.round((1 - 1 / (1 + sampleSize * 0.1)) * 100) / 100;
 }

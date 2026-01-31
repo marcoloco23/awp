@@ -37,7 +37,16 @@ import {
   taskListCommand,
   taskUpdateCommand,
   taskShowCommand,
+  taskGraphCommand,
 } from "./commands/task.js";
+import {
+  swarmCreateCommand,
+  swarmRoleAddCommand,
+  swarmRecruitCommand,
+  swarmShowCommand,
+  swarmListCommand,
+  swarmUpdateCommand,
+} from "./commands/swarm.js";
 import { statusCommand } from "./commands/status.js";
 
 const program = new Command();
@@ -289,6 +298,68 @@ task
   .argument("<project>", "Project slug")
   .argument("<slug>", "Task slug")
   .action(taskShowCommand);
+
+task
+  .command("graph")
+  .description("Analyze task dependencies: topological order, cycles, critical path")
+  .argument("<project>", "Project slug")
+  .option("--check", "Check for cycles only (exit with error if found)")
+  .option("--json", "Output as JSON")
+  .action(taskGraphCommand);
+
+// awp swarm
+const swarm = program.command("swarm").description("Multi-agent swarm operations (CDP)");
+
+swarm
+  .command("create")
+  .description("Create a new swarm for multi-agent coordination")
+  .argument("<slug>", "Swarm slug (e.g., q3-launch-team)")
+  .option("-n, --name <name>", "Swarm name")
+  .option("-g, --goal <goal>", "Swarm goal/objective")
+  .option("-p, --project <slug>", "Link to a project")
+  .option("--human-lead <id>", "Human lead user ID (e.g., user:marc)")
+  .option("--veto-power", "Grant human lead veto power")
+  .action(swarmCreateCommand);
+
+swarm
+  .command("role")
+  .description("Manage swarm roles")
+  .command("add")
+  .description("Add a role to a swarm")
+  .argument("<swarm>", "Swarm slug")
+  .argument("<role>", "Role name (e.g., researcher, writer)")
+  .option("-c, --count <n>", "Number of agents needed for this role", "1")
+  .option(
+    "-r, --min-reputation <spec...>",
+    "Minimum reputation (dimension:score or domain-competence:domain:score)"
+  )
+  .action(swarmRoleAddCommand);
+
+swarm
+  .command("recruit")
+  .description("Find and assign qualified agents to swarm roles")
+  .argument("<swarm>", "Swarm slug")
+  .option("--auto", "Automatically assign best qualified candidates")
+  .action(swarmRecruitCommand);
+
+swarm
+  .command("show")
+  .description("Show swarm details and staffing")
+  .argument("<slug>", "Swarm slug")
+  .action(swarmShowCommand);
+
+swarm
+  .command("list")
+  .description("List all swarms")
+  .option("--status <state>", "Filter by status (recruiting, active, completed, disbanded)")
+  .action(swarmListCommand);
+
+swarm
+  .command("update")
+  .description("Update swarm status")
+  .argument("<slug>", "Swarm slug")
+  .option("--status <state>", "New status (recruiting, active, completed, disbanded)")
+  .action(swarmUpdateCommand);
 
 // awp status
 program

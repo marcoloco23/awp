@@ -1,9 +1,7 @@
 import { writeFile } from "node:fs/promises";
-import {
-  AWP_VERSION,
-  CDP_VERSION,
-} from "@agent-workspace/core";
+import { AWP_VERSION, CDP_VERSION } from "@agent-workspace/core";
 import type { TaskFrontmatter } from "@agent-workspace/core";
+import { analyzeGraph, getTaskSlug, type TaskNode } from "@agent-workspace/utils";
 import { findWorkspaceRoot } from "../lib/workspace.js";
 import { serializeWorkspaceFile } from "../lib/frontmatter.js";
 import {
@@ -42,9 +40,7 @@ export async function taskCreateCommand(
   }
 
   if (!validateSlug(taskSlug)) {
-    console.error(
-      `Invalid task slug: ${taskSlug} (must be lowercase alphanumeric + hyphens)`
-    );
+    console.error(`Invalid task slug: ${taskSlug} (must be lowercase alphanumeric + hyphens)`);
     process.exit(1);
   }
 
@@ -66,9 +62,7 @@ export async function taskCreateCommand(
     process.exit(1);
   }
 
-  const blockedBy = options.blockedBy
-    ? options.blockedBy.split(",").map((b) => b.trim())
-    : [];
+  const blockedBy = options.blockedBy ? options.blockedBy.split(",").map((b) => b.trim()) : [];
 
   const fm: TaskFrontmatter = {
     awp: AWP_VERSION,
@@ -90,9 +84,7 @@ export async function taskCreateCommand(
   if (options.outputArtifact) fm.outputArtifact = options.outputArtifact;
   if (options.contract) fm.contractSlug = options.contract;
 
-  const body =
-    `# ${title}\n\n` +
-    `## Acceptance Criteria\n\n- \n\n## Notes\n\n- `;
+  const body = `# ${title}\n\n` + `## Acceptance Criteria\n\n- \n\n## Notes\n\n- `;
 
   await ensureTaskDir(root, projectSlug);
   const filePath = slugToTaskPath(root, projectSlug, taskSlug);
@@ -106,15 +98,11 @@ export async function taskCreateCommand(
   const projContent = serializeWorkspaceFile(project);
   await writeFile(project.filePath, projContent, "utf-8");
 
-  console.log(
-    `Created projects/${projectSlug}/tasks/${taskSlug}.md (${priority}, ${fm.status})`
-  );
+  console.log(`Created projects/${projectSlug}/tasks/${taskSlug}.md (${priority}, ${fm.status})`);
 
   // Check reputation gates if assignee is specified
   if (options.assigneeSlug) {
-    const member = project.frontmatter.members.find(
-      (m) => m.slug === options.assigneeSlug
-    );
+    const member = project.frontmatter.members.find((m) => m.slug === options.assigneeSlug);
     if (member?.minReputation) {
       try {
         const profile = await loadProfile(root, options.assigneeSlug);
@@ -132,9 +120,7 @@ export async function taskCreateCommand(
           }
         }
       } catch {
-        console.log(
-          `  Note: No reputation profile for ${options.assigneeSlug}`
-        );
+        console.log(`  Note: No reputation profile for ${options.assigneeSlug}`);
       }
     }
   }
@@ -159,9 +145,7 @@ export async function taskListCommand(
     tasks = tasks.filter((t) => t.frontmatter.status === options.status);
   }
   if (options.assignee) {
-    tasks = tasks.filter(
-      (t) => t.frontmatter.assigneeSlug === options.assignee
-    );
+    tasks = tasks.filter((t) => t.frontmatter.assigneeSlug === options.assignee);
   }
 
   if (tasks.length === 0) {
@@ -173,8 +157,7 @@ export async function taskListCommand(
     return;
   }
 
-  const header =
-    "TASK                     STATUS         PRIORITY   ASSIGNEE             DEADLINE";
+  const header = "TASK                     STATUS         PRIORITY   ASSIGNEE             DEADLINE";
   console.log(header);
   console.log("-".repeat(header.length));
 
@@ -219,18 +202,9 @@ export async function taskUpdateCommand(
   const changes: string[] = [];
 
   if (options.status) {
-    const validStatuses = [
-      "pending",
-      "in-progress",
-      "blocked",
-      "review",
-      "completed",
-      "cancelled",
-    ];
+    const validStatuses = ["pending", "in-progress", "blocked", "review", "completed", "cancelled"];
     if (!validStatuses.includes(options.status)) {
-      console.error(
-        `Invalid status: ${options.status}. Use: ${validStatuses.join(", ")}`
-      );
+      console.error(`Invalid status: ${options.status}. Use: ${validStatuses.join(", ")}`);
       process.exit(1);
     }
     fm.status = options.status as TaskFrontmatter["status"];
@@ -249,9 +223,7 @@ export async function taskUpdateCommand(
     let project;
     try {
       project = await loadProject(root, projectSlug);
-      const member = project.frontmatter.members.find(
-        (m) => m.slug === options.assigneeSlug
-      );
+      const member = project.frontmatter.members.find((m) => m.slug === options.assigneeSlug);
       if (member?.minReputation) {
         try {
           const profile = await loadProfile(root, options.assigneeSlug);
@@ -313,10 +285,7 @@ export async function taskUpdateCommand(
 /**
  * awp task show <project> <slug>
  */
-export async function taskShowCommand(
-  projectSlug: string,
-  taskSlug: string
-): Promise<void> {
+export async function taskShowCommand(projectSlug: string, taskSlug: string): Promise<void> {
   const root = await findWorkspaceRoot();
   if (!root) {
     console.error("Not in an AWP workspace.");
@@ -342,9 +311,7 @@ export async function taskShowCommand(
   if (fm.deadline) console.log(`Deadline: ${fm.deadline}`);
 
   if (fm.assignee) {
-    console.log(
-      `Assignee: ${fm.assigneeSlug ? `@${fm.assigneeSlug}` : fm.assignee}`
-    );
+    console.log(`Assignee: ${fm.assigneeSlug ? `@${fm.assigneeSlug}` : fm.assignee}`);
   } else {
     console.log("Assignee: unassigned");
   }
@@ -370,4 +337,127 @@ export async function taskShowCommand(
   if (fm.outputArtifact) console.log(`\nOutput Artifact: ${fm.outputArtifact}`);
   if (fm.contractSlug) console.log(`Contract: ${fm.contractSlug}`);
   if (fm.tags?.length) console.log(`Tags: ${fm.tags.join(", ")}`);
+}
+
+/**
+ * awp task graph <project>
+ * Analyze task dependencies: topological order, cycles, critical path, blocked tasks
+ */
+export async function taskGraphCommand(
+  projectSlug: string,
+  options: { check?: boolean; json?: boolean }
+): Promise<void> {
+  const root = await findWorkspaceRoot();
+  if (!root) {
+    console.error("Not in an AWP workspace.");
+    process.exit(1);
+  }
+
+  // Load all tasks for the project
+  const tasks = await listTasks(root, projectSlug);
+
+  if (tasks.length === 0) {
+    console.log(`No tasks found for project ${projectSlug}.`);
+    return;
+  }
+
+  // Convert to TaskNode format for the graph analysis
+  const taskNodes: TaskNode[] = tasks.map((t) => ({
+    id: t.frontmatter.id,
+    blockedBy: t.frontmatter.blockedBy || [],
+    blocks: t.frontmatter.blocks || [],
+    status: t.frontmatter.status,
+  }));
+
+  // Run graph analysis
+  const analysis = analyzeGraph(taskNodes);
+
+  // JSON output mode
+  if (options.json) {
+    const output = {
+      isValid: analysis.isValid,
+      sorted: analysis.sorted,
+      cycles: analysis.cycles,
+      criticalPath: analysis.criticalPath,
+      blocked: Object.fromEntries(analysis.blocked),
+    };
+    console.log(JSON.stringify(output, null, 2));
+    return;
+  }
+
+  // Check mode - just validate and exit with error code if cycles found
+  if (options.check) {
+    if (!analysis.isValid) {
+      console.error("ERROR: Dependency cycles detected!");
+      for (const cycle of analysis.cycles) {
+        const cycleSlugs = cycle.map((id) => getTaskSlug(id));
+        console.error(`  Cycle: ${cycleSlugs.join(" → ")}`);
+      }
+      process.exit(1);
+    }
+    console.log("OK: No dependency cycles found.");
+    return;
+  }
+
+  // Standard output
+  console.log(`Dependency Analysis for project: ${projectSlug}`);
+  console.log("=".repeat(50));
+
+  // Cycles (if any)
+  if (analysis.cycles.length > 0) {
+    console.log("");
+    console.log("WARNING: Dependency Cycles Detected");
+    console.log("-".repeat(35));
+    for (const cycle of analysis.cycles) {
+      const cycleSlugs = cycle.map((id) => getTaskSlug(id));
+      console.log(`  ${cycleSlugs.join(" → ")}`);
+    }
+  }
+
+  // Topological order
+  console.log("");
+  console.log("Task Order (topological)");
+  console.log("-".repeat(24));
+  if (analysis.sorted) {
+    for (let i = 0; i < analysis.sorted.length; i++) {
+      const taskId = analysis.sorted[i];
+      const slug = getTaskSlug(taskId);
+      const task = tasks.find((t) => t.frontmatter.id === taskId);
+      const status = task?.frontmatter.status || "unknown";
+      console.log(`  ${(i + 1).toString().padStart(2)}. ${slug} (${status})`);
+    }
+  } else {
+    console.log("  Unable to compute order (cycles present)");
+  }
+
+  // Critical path
+  if (analysis.criticalPath.length > 0) {
+    console.log("");
+    console.log("Critical Path");
+    console.log("-".repeat(13));
+    const pathSlugs = analysis.criticalPath.map((id) => getTaskSlug(id));
+    console.log(`  ${pathSlugs.join(" → ")} (${analysis.criticalPath.length} tasks)`);
+  }
+
+  // Blocked tasks
+  if (analysis.blocked.size > 0) {
+    console.log("");
+    console.log("Blocked Tasks");
+    console.log("-".repeat(13));
+    for (const [taskId, blockers] of analysis.blocked) {
+      const slug = getTaskSlug(taskId);
+      const blockerSlugs = blockers.map((b) => getTaskSlug(b));
+      const task = tasks.find((t) => t.frontmatter.id === taskId);
+      const blockerStatuses = blockers.map((b) => {
+        const blocker = tasks.find((t) => t.frontmatter.id === b);
+        return blocker?.frontmatter.status || "unknown";
+      });
+      console.log(
+        `  ${slug}: waiting on ${blockerSlugs.map((s, i) => `${s} (${blockerStatuses[i]})`).join(", ")}`
+      );
+    }
+  } else {
+    console.log("");
+    console.log("No blocked tasks.");
+  }
 }

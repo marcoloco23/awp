@@ -2,7 +2,7 @@
  * @agent-workspace/utils
  *
  * Shared utilities for AWP packages including validation,
- * reputation calculations, and frontmatter parsing.
+ * reputation calculations, frontmatter parsing, and workspace helpers.
  */
 
 // Validation utilities
@@ -29,3 +29,38 @@ export {
   writeWorkspaceFile,
   getFrontmatterType,
 } from "./frontmatter.js";
+
+// Workspace utilities
+export {
+  findWorkspaceRoot,
+  loadManifest,
+  fileExists,
+  getAgentDid,
+  safeReadFile,
+  getWorkspaceRoot,
+} from "./workspace.js";
+
+// Graph utilities (dependency analysis)
+export {
+  type TaskNode,
+  type DependencyGraph,
+  type GraphAnalysis,
+  buildGraph,
+  topologicalSort,
+  detectCycles,
+  findCriticalPath,
+  getBlockedTasks,
+  analyzeGraph,
+  getTaskSlug,
+  getProjectSlug,
+} from "./graph.js";
+
+// Swarm utilities (recruitment)
+export {
+  type RecruitmentCandidate,
+  type RecruitmentResult,
+  findCandidatesForRole,
+  autoRecruitSwarm,
+  isSwarmFullyStaffed,
+  getSwarmStaffingSummary,
+} from "./swarm.js";

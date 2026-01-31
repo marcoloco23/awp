@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://awp.dev/schemas/swarm.schema.json",
+  "title": "AWP Swarm",
+  "description": "Schema for AWP swarm frontmatter (CDP v1.0) - Multi-agent composition with dynamic role recruitment",
+  "type": "object",
+  "required": ["awp", "cdp", "type", "id", "name", "goal", "status", "created", "roles"],
+  "properties": {
+    "awp": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "AWP specification version"
+    },
+    "cdp": {
+      "type": "string",
+      "description": "CDP specification version"
+    },
+    "type": {
+      "type": "string",
+      "const": "swarm"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^swarm:[a-z0-9][a-z0-9-]*$",
+      "description": "Unique identifier (swarm:<slug>)"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable swarm name"
+    },
+    "goal": {
+      "type": "string",
+      "description": "The objective this swarm is working toward"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["recruiting", "active", "completed", "disbanded"],
+      "description": "Swarm lifecycle state"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Swarm creation timestamp"
+    },
+    "governance": {
+      "$ref": "#/$defs/swarmGovernance",
+      "description": "Optional human governance settings"
+    },
+    "roles": {
+      "type": "array",
+      "description": "Roles needed for this swarm with reputation requirements",
+      "items": {
+        "$ref": "#/$defs/swarmRole"
+      },
+      "minItems": 1
+    },
+    "projectId": {
+      "type": "string",
+      "pattern": "^project:[a-z0-9][a-z0-9-]*$",
+      "description": "Optional linked project ID"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Classification tags"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "swarmGovernance": {
+      "type": "object",
+      "properties": {
+        "humanLead": {
+          "type": "string",
+          "description": "User ID of the human lead (e.g., 'user:marc')"
+        },
+        "vetoPower": {
+          "type": "boolean",
+          "description": "Whether the human lead can veto decisions"
+        },
+        "escalationThreshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Auto-escalate to human if confidence below this threshold"
+        }
+      },
+      "additionalProperties": true
+    },
+    "swarmRole": {
+      "type": "object",
+      "required": ["name", "count", "assigned"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Role name (e.g., 'researcher', 'writer')"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of agents needed for this role"
+        },
+        "minReputation": {
+          "type": "object",
+          "description": "Map of dimension/domain to minimum score threshold",
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "assigned": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "DIDs of agents assigned to this role"
+        },
+        "assignedSlugs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Reputation profile slugs of assigned agents"
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}
