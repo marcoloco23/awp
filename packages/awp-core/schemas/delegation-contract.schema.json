@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://awp.dev/schemas/delegation-contract.schema.json",
+  "title": "AWP Delegation Contract",
+  "description": "Schema for AWP delegation contract frontmatter (RDP v1.0)",
+  "type": "object",
+  "required": ["awp", "rdp", "type", "id", "status", "delegator", "delegate", "delegateSlug", "created", "task", "evaluation"],
+  "properties": {
+    "awp": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "AWP specification version"
+    },
+    "rdp": {
+      "type": "string",
+      "description": "RDP specification version"
+    },
+    "type": {
+      "type": "string",
+      "const": "delegation-contract"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^contract:[a-z0-9][a-z0-9-]*$",
+      "description": "Unique identifier (contract:<slug>)"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "active", "completed", "evaluated"],
+      "description": "Contract lifecycle state"
+    },
+    "delegator": {
+      "type": "string",
+      "description": "DID of the agent delegating work"
+    },
+    "delegate": {
+      "type": "string",
+      "description": "DID of the agent receiving work"
+    },
+    "delegateSlug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "Slug of delegate's reputation profile"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Contract creation timestamp"
+    },
+    "deadline": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Optional deadline"
+    },
+    "task": {
+      "type": "object",
+      "required": ["description"],
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "What needs to be done"
+        },
+        "outputFormat": {
+          "type": "string",
+          "description": "Expected output type (e.g., 'knowledge-artifact')"
+        },
+        "outputSlug": {
+          "type": "string",
+          "description": "Expected output artifact slug"
+        }
+      },
+      "additionalProperties": true
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "include": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "What's in scope"
+        },
+        "exclude": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "What's out of scope"
+        }
+      },
+      "additionalProperties": true
+    },
+    "constraints": {
+      "type": "object",
+      "properties": {
+        "requireCitations": {
+          "type": "boolean",
+          "description": "Must cite sources"
+        },
+        "confidenceThreshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Minimum confidence for claims"
+        }
+      },
+      "additionalProperties": true
+    },
+    "evaluation": {
+      "type": "object",
+      "required": ["criteria"],
+      "properties": {
+        "criteria": {
+          "type": "object",
+          "description": "Map of criterion name to weight (should sum to 1.0)",
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "result": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "description": "Map of criterion name to score (0.0-1.0)",
+              "additionalProperties": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          ],
+          "description": "Evaluation results, null until evaluated"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

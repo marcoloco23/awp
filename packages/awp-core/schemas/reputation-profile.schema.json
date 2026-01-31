@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://awp.dev/schemas/reputation-profile.schema.json",
+  "title": "AWP Reputation Profile",
+  "description": "Schema for AWP reputation profile frontmatter (RDP v1.0)",
+  "type": "object",
+  "required": ["awp", "rdp", "type", "id", "agentDid", "agentName", "lastUpdated", "signals"],
+  "properties": {
+    "awp": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "AWP specification version"
+    },
+    "rdp": {
+      "type": "string",
+      "description": "RDP specification version"
+    },
+    "type": {
+      "type": "string",
+      "const": "reputation-profile"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^reputation:[a-z0-9][a-z0-9-]*$",
+      "description": "Unique identifier (reputation:<slug>)"
+    },
+    "agentDid": {
+      "type": "string",
+      "description": "W3C DID of the tracked agent"
+    },
+    "agentName": {
+      "type": "string",
+      "description": "Human-readable agent name"
+    },
+    "lastUpdated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of last signal"
+    },
+    "dimensions": {
+      "type": "object",
+      "description": "Map of dimension name to score object",
+      "additionalProperties": {
+        "$ref": "#/$defs/dimensionScore"
+      }
+    },
+    "domainCompetence": {
+      "type": "object",
+      "description": "Map of domain name to score object",
+      "additionalProperties": {
+        "$ref": "#/$defs/dimensionScore"
+      }
+    },
+    "signals": {
+      "type": "array",
+      "description": "Append-only log of reputation signals",
+      "items": {
+        "$ref": "#/$defs/reputationSignal"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "dimensionScore": {
+      "type": "object",
+      "required": ["score", "confidence", "sampleSize", "lastSignal"],
+      "properties": {
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Raw score (before decay)"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Data confidence level"
+        },
+        "sampleSize": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of signals received"
+        },
+        "lastSignal": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of most recent signal"
+        }
+      },
+      "additionalProperties": true
+    },
+    "reputationSignal": {
+      "type": "object",
+      "required": ["source", "dimension", "score", "timestamp"],
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "DID of the observer"
+        },
+        "dimension": {
+          "type": "string",
+          "description": "Which dimension (e.g., 'reliability', 'domain-competence')"
+        },
+        "domain": {
+          "type": "string",
+          "description": "Domain name (required when dimension is 'domain-competence')"
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Observed performance score"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the observation was made"
+        },
+        "evidence": {
+          "type": "string",
+          "description": "Reference to supporting evidence (e.g., 'contract:q3-research')"
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable note"
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

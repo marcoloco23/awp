@@ -4,10 +4,13 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /** Current AWP specification version */
-export const AWP_VERSION = "0.2.0";
+export const AWP_VERSION = "0.3.0";
 
 /** Current SMP protocol version */
 export const SMP_VERSION = "1.0";
+
+/** Current RDP protocol version */
+export const RDP_VERSION = "1.0";
 
 /** Required workspace files */
 export const REQUIRED_FILES = ["IDENTITY.md", "SOUL.md"] as const;
@@ -37,6 +40,12 @@ export const MEMORY_DIR = "memory";
 /** Artifacts directory */
 export const ARTIFACTS_DIR = "artifacts";
 
+/** Reputation profiles directory */
+export const REPUTATION_DIR = "reputation";
+
+/** Delegation contracts directory */
+export const CONTRACTS_DIR = "contracts";
+
 /** File type to filename mapping */
 export const FILE_TYPE_MAP: Record<string, string> = {
   identity: "IDENTITY.md",
@@ -48,6 +57,8 @@ export const FILE_TYPE_MAP: Record<string, string> = {
   bootstrap: "BOOTSTRAP.md",
   "memory-longterm": "MEMORY.md",
   "knowledge-artifact": "artifacts/",
+  "reputation-profile": "reputation/",
+  "delegation-contract": "contracts/",
 };
 
 /**
@@ -74,4 +85,6 @@ export const SCHEMA_MAP: Record<string, string> = {
   "memory-daily": "memory-daily.schema.json",
   "memory-longterm": "memory-longterm.schema.json",
   "knowledge-artifact": "knowledge-artifact.schema.json",
+  "reputation-profile": "reputation-profile.schema.json",
+  "delegation-contract": "delegation-contract.schema.json",
 };

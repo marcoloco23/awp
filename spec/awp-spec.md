@@ -438,6 +438,8 @@ This specification follows Semantic Versioning. Breaking changes increment the m
 | `memory-longterm` | MEMORY.md | Curated memory |
 | `memory-daily` | memory/*.md | Daily logs |
 | `knowledge-artifact` | artifacts/*.md | Knowledge artifacts (SMP) |
+| `reputation-profile` | reputation/*.md | Agent reputation profiles (RDP) |
+| `delegation-contract` | contracts/*.md | Delegation contracts (RDP) |
 
 ## Appendix B: Reserved Directories
 
@@ -445,6 +447,8 @@ This specification follows Semantic Versioning. Breaking changes increment the m
 |-----------|---------|
 | `.awp/` | Workspace metadata and manifest |
 | `memory/` | Daily memory logs |
+| `reputation/` | Agent reputation profiles |
+| `contracts/` | Delegation contracts |
 | `artifacts/` | Knowledge artifacts (Phase 2: SMP) |
 | `contracts/` | Delegation contracts (Phase 3: RDP) |
 | `canvas/` | UI canvases and dashboards |

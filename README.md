@@ -16,6 +16,10 @@ your-agent/
     2026-01-30.md
   artifacts/             # Versioned knowledge artifacts (SMP)
     llm-research.md
+  reputation/            # Multi-dimensional reputation profiles (RDP)
+    research-bot.md
+  contracts/             # Delegation contracts (RDP)
+    q3-research.md
 ```
 
 Every file is valid Markdown (human-readable) with structured YAML frontmatter (machine-parseable). No database, no server, no runtime. Just files in a directory, compatible with Git by default.
@@ -58,7 +62,7 @@ AWP sits below all other protocols — defining what the agent *is*, while they 
 | Package | Description | Install |
 |---------|-------------|---------|
 | [@agent-workspace/core](packages/awp-core/) | Types, constants, JSON schemas | `npm i @agent-workspace/core` |
-| [@agent-workspace/cli](packages/awp-cli/) | CLI tool (init, validate, inspect, identity, memory) | `npm i -g @agent-workspace/cli` |
+| [@agent-workspace/cli](packages/awp-cli/) | CLI tool (init, validate, inspect, identity, memory, reputation, contract) | `npm i -g @agent-workspace/cli` |
 | [@agent-workspace/mcp-server](packages/awp-mcp-server/) | MCP server for any MCP-compatible client | `npm i @agent-workspace/mcp-server` |
 
 ## MCP Server
@@ -83,7 +87,39 @@ Tools exposed:
 - `awp_artifact_write` — Create or update a knowledge artifact
 - `awp_artifact_list` — List all artifacts
 - `awp_artifact_search` — Search artifacts
+- `awp_reputation_query` — Query agent reputation (with time-based decay)
+- `awp_reputation_signal` — Log a reputation signal
+- `awp_contract_create` — Create a delegation contract
+- `awp_contract_evaluate` — Evaluate a contract and generate reputation signals
 - `awp_workspace_status` — Workspace summary
+
+## Reputation & Delegation (RDP)
+
+Track agent trustworthiness and define work agreements:
+
+```bash
+# Log a reputation signal for an agent
+awp reputation signal research-bot \
+  --agent-did did:key:z123 --agent-name ResearchBot \
+  --dimension reliability --score 0.9 --message "Delivered on time"
+
+# Query reputation (scores decay over time toward 0.5)
+awp reputation query research-bot
+
+# List all tracked agents
+awp reputation list
+
+# Create a delegation contract
+awp contract create q3-research \
+  --delegate did:key:z123 --delegate-slug research-bot \
+  --description "Research LLM context window techniques"
+
+# Evaluate a completed contract (generates reputation signals automatically)
+awp contract evaluate q3-research \
+  --completeness 0.9 --accuracy 0.85 --clarity 0.8 --timeliness 1.0
+```
+
+Reputation uses EWMA (exponentially weighted moving average) with time-based decay — scores degrade without new signals, confidence tracks sample size independently, and domain competence is a separate map. See [spec/rdp/rdp-spec.md](spec/rdp/rdp-spec.md) for the full specification.
 
 ## File Format
 
@@ -91,7 +127,7 @@ AWP files are dual-format — valid Markdown with YAML frontmatter:
 
 ```markdown
 ---
-awp: "0.1.0"
+awp: "0.3.0"
 type: "soul"
 vibe: "Competent, dry wit, gets stuff done"
 values:
@@ -174,7 +210,7 @@ Artifacts track who wrote what, when, and with what confidence — full provenan
 
 ## Specification
 
-The full protocol specification is at [spec/awp-spec.md](spec/awp-spec.md). JSON schemas for all file types are in [spec/schemas/](spec/schemas/).
+The full protocol specification is at [spec/awp-spec.md](spec/awp-spec.md). Sub-protocol specs: [SMP](spec/smp/smp-spec.md) (Shared Memory), [RDP](spec/rdp/rdp-spec.md) (Reputation & Delegation). JSON schemas for all file types are in [spec/schemas/](spec/schemas/).
 
 ## Design Principles
 

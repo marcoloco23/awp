@@ -6,7 +6,7 @@ import * as z from "zod";
 import { readFile, writeFile, readdir, mkdir, access } from "node:fs/promises";
 import { join } from "node:path";
 import matter from "gray-matter";
-import { AWP_VERSION, SMP_VERSION, MEMORY_DIR, ARTIFACTS_DIR } from "@agent-workspace/core";
+import { AWP_VERSION, SMP_VERSION, RDP_VERSION, MEMORY_DIR, ARTIFACTS_DIR, REPUTATION_DIR, CONTRACTS_DIR } from "@agent-workspace/core";
 
 const server = new McpServer({
   name: "awp-workspace",
@@ -663,10 +663,428 @@ server.registerTool(
       status.artifacts = { count: 0 };
     }
 
+    // Reputation stats
+    try {
+      const repDir = join(root, REPUTATION_DIR);
+      const files = await readdir(repDir);
+      const mdFiles = files.filter((f) => f.endsWith(".md"));
+      status.reputation = { count: mdFiles.length };
+    } catch {
+      status.reputation = { count: 0 };
+    }
+
+    // Contract stats
+    try {
+      const conDir = join(root, CONTRACTS_DIR);
+      const files = await readdir(conDir);
+      const mdFiles = files.filter((f) => f.endsWith(".md"));
+      status.contracts = { count: mdFiles.length };
+    } catch {
+      status.contracts = { count: 0 };
+    }
+
     return {
       content: [
         { type: "text" as const, text: JSON.stringify(status, null, 2) },
       ],
+    };
+  }
+);
+
+// --- Tool: awp_reputation_query ---
+server.registerTool(
+  "awp_reputation_query",
+  {
+    title: "Query Reputation",
+    description:
+      "Query an agent's reputation profile. Returns multi-dimensional scores with decay applied. Omit slug to list all tracked agents.",
+    inputSchema: {
+      slug: z.string().optional().describe("Agent reputation slug (omit to list all)"),
+      dimension: z.string().optional().describe("Filter by dimension"),
+      domain: z.string().optional().describe("Filter by domain competence"),
+    },
+  },
+  async ({ slug, dimension, domain }) => {
+    const root = getWorkspaceRoot();
+
+    if (!slug) {
+      // List all profiles
+      const repDir = join(root, REPUTATION_DIR);
+      let files: string[];
+      try {
+        files = await readdir(repDir);
+      } catch {
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ profiles: [] }, null, 2) }],
+        };
+      }
+      const profiles: any[] = [];
+      for (const f of files.filter((f) => f.endsWith(".md")).sort()) {
+        try {
+          const raw = await readFile(join(repDir, f), "utf-8");
+          const { data } = matter(raw);
+          if (data.type !== "reputation-profile") continue;
+          profiles.push({
+            slug: f.replace(/\.md$/, ""),
+            agentName: data.agentName,
+            agentDid: data.agentDid,
+            signalCount: data.signals?.length || 0,
+            dimensions: Object.keys(data.dimensions || {}),
+            domains: Object.keys(data.domainCompetence || {}),
+          });
+        } catch { /* skip */ }
+      }
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify({ profiles }, null, 2) }],
+      };
+    }
+
+    // Read specific profile
+    const path = join(root, REPUTATION_DIR, `${slug}.md`);
+    try {
+      const raw = await readFile(path, "utf-8");
+      const { data, content } = matter(raw);
+
+      // Apply decay to scores
+      const now = new Date();
+      const DECAY_RATE = 0.02;
+      const MS_PER_MONTH = 30.44 * 24 * 60 * 60 * 1000;
+
+      const applyDecay = (dim: any) => {
+        if (!dim?.lastSignal) return dim;
+        const months = (now.getTime() - new Date(dim.lastSignal).getTime()) / MS_PER_MONTH;
+        if (months <= 0) return { ...dim };
+        const factor = Math.exp(-DECAY_RATE * months);
+        const decayed = 0.5 + (dim.score - 0.5) * factor;
+        return { ...dim, decayedScore: Math.round(decayed * 1000) / 1000 };
+      };
+
+      const result: any = { ...data, body: content.trim() };
+
+      // Apply decay to dimensions
+      if (data.dimensions) {
+        result.dimensions = {};
+        for (const [name, dim] of Object.entries(data.dimensions as Record<string, any>)) {
+          if (dimension && name !== dimension) continue;
+          result.dimensions[name] = applyDecay(dim);
+        }
+      }
+      if (data.domainCompetence) {
+        result.domainCompetence = {};
+        for (const [name, dim] of Object.entries(data.domainCompetence as Record<string, any>)) {
+          if (domain && name !== domain) continue;
+          result.domainCompetence[name] = applyDecay(dim);
+        }
+      }
+
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+      };
+    } catch {
+      return {
+        content: [{ type: "text" as const, text: `Reputation profile "${slug}" not found.` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+// --- Tool: awp_reputation_signal ---
+server.registerTool(
+  "awp_reputation_signal",
+  {
+    title: "Log Reputation Signal",
+    description:
+      "Log a reputation signal for an agent. Creates the profile if it doesn't exist (requires agentDid and agentName for new profiles).",
+    inputSchema: {
+      slug: z.string().describe("Agent reputation slug"),
+      dimension: z.string().describe("Dimension (reliability, epistemic-hygiene, coordination, domain-competence)"),
+      score: z.number().min(0).max(1).describe("Score (0.0-1.0)"),
+      domain: z.string().optional().describe("Domain (required for domain-competence)"),
+      evidence: z.string().optional().describe("Evidence reference"),
+      message: z.string().optional().describe("Human-readable note"),
+      agentDid: z.string().optional().describe("Agent DID (required for new profiles)"),
+      agentName: z.string().optional().describe("Agent name (required for new profiles)"),
+    },
+  },
+  async ({ slug, dimension: dim, score, domain, evidence, message, agentDid: newDid, agentName: newName }) => {
+    const root = getWorkspaceRoot();
+    const repDir = join(root, REPUTATION_DIR);
+    await mkdir(repDir, { recursive: true });
+    const filePath = join(repDir, `${slug}.md`);
+    const sourceDid = await getAgentDid(root);
+    const now = new Date();
+    const timestamp = now.toISOString();
+    const ALPHA = 0.15;
+
+    const signal: any = { source: sourceDid, dimension: dim, score, timestamp };
+    if (domain) signal.domain = domain;
+    if (evidence) signal.evidence = evidence;
+    if (message) signal.message = message;
+
+    const updateDim = (existing: any, signalScore: number) => {
+      if (!existing) {
+        return {
+          score: signalScore,
+          confidence: Math.round((1 - 1 / (1 + 1 * 0.1)) * 100) / 100,
+          sampleSize: 1,
+          lastSignal: timestamp,
+        };
+      }
+      // Apply decay then EWMA
+      const MS_PER_MONTH = 30.44 * 24 * 60 * 60 * 1000;
+      const months = (now.getTime() - new Date(existing.lastSignal).getTime()) / MS_PER_MONTH;
+      const decayFactor = months > 0 ? Math.exp(-0.02 * months) : 1;
+      const decayed = 0.5 + (existing.score - 0.5) * decayFactor;
+      const newScore = ALPHA * signalScore + (1 - ALPHA) * decayed;
+      const newSampleSize = existing.sampleSize + 1;
+      return {
+        score: Math.round(newScore * 1000) / 1000,
+        confidence: Math.round((1 - 1 / (1 + newSampleSize * 0.1)) * 100) / 100,
+        sampleSize: newSampleSize,
+        lastSignal: timestamp,
+      };
+    };
+
+    let isNew = false;
+    let fileData: { data: any; content: string };
+
+    try {
+      const raw = await readFile(filePath, "utf-8");
+      fileData = matter(raw);
+    } catch {
+      // New profile
+      if (!newDid || !newName) {
+        return {
+          content: [{ type: "text" as const, text: "Error: agentDid and agentName required for new profiles." }],
+          isError: true,
+        };
+      }
+      isNew = true;
+      fileData = {
+        data: {
+          awp: AWP_VERSION,
+          rdp: RDP_VERSION,
+          type: "reputation-profile",
+          id: `reputation:${slug}`,
+          agentDid: newDid,
+          agentName: newName,
+          lastUpdated: timestamp,
+          dimensions: {},
+          domainCompetence: {},
+          signals: [],
+        },
+        content: `\n# ${newName} — Reputation Profile\n\nTracked since ${timestamp.split("T")[0]}.\n`,
+      };
+    }
+
+    fileData.data.lastUpdated = timestamp;
+    fileData.data.signals.push(signal);
+
+    if (!fileData.data.dimensions) fileData.data.dimensions = {};
+    if (!fileData.data.domainCompetence) fileData.data.domainCompetence = {};
+
+    if (dim === "domain-competence" && domain) {
+      fileData.data.domainCompetence[domain] = updateDim(fileData.data.domainCompetence[domain], score);
+    } else {
+      fileData.data.dimensions[dim] = updateDim(fileData.data.dimensions[dim], score);
+    }
+
+    const output = matter.stringify(fileData.content, fileData.data);
+    await writeFile(filePath, output, "utf-8");
+
+    return {
+      content: [{
+        type: "text" as const,
+        text: `${isNew ? "Created" : "Updated"} reputation/${slug}.md — ${dim}${domain ? `:${domain}` : ""}: ${score}`,
+      }],
+    };
+  }
+);
+
+// --- Tool: awp_contract_create ---
+server.registerTool(
+  "awp_contract_create",
+  {
+    title: "Create Delegation Contract",
+    description:
+      "Create a new delegation contract between agents with task definition and evaluation criteria.",
+    inputSchema: {
+      slug: z.string().describe("Contract slug"),
+      delegate: z.string().describe("Delegate agent DID"),
+      delegateSlug: z.string().describe("Delegate reputation profile slug"),
+      description: z.string().describe("Task description"),
+      deadline: z.string().optional().describe("Deadline (ISO 8601)"),
+      outputFormat: z.string().optional().describe("Expected output type"),
+      outputSlug: z.string().optional().describe("Expected output artifact slug"),
+      criteria: z.record(z.string(), z.number()).optional().describe("Evaluation criteria weights (default: completeness:0.3, accuracy:0.4, clarity:0.2, timeliness:0.1)"),
+    },
+  },
+  async ({ slug, delegate, delegateSlug, description, deadline, outputFormat, outputSlug, criteria }) => {
+    const root = getWorkspaceRoot();
+    const conDir = join(root, CONTRACTS_DIR);
+    await mkdir(conDir, { recursive: true });
+
+    const filePath = join(conDir, `${slug}.md`);
+    const delegatorDid = await getAgentDid(root);
+    const now = new Date().toISOString();
+
+    const evalCriteria = criteria || {
+      completeness: 0.3,
+      accuracy: 0.4,
+      clarity: 0.2,
+      timeliness: 0.1,
+    };
+
+    const data: any = {
+      awp: AWP_VERSION,
+      rdp: RDP_VERSION,
+      type: "delegation-contract",
+      id: `contract:${slug}`,
+      status: "active",
+      delegator: delegatorDid,
+      delegate,
+      delegateSlug,
+      created: now,
+      task: { description },
+      evaluation: { criteria: evalCriteria, result: null },
+    };
+
+    if (deadline) data.deadline = deadline;
+    if (outputFormat) data.task.outputFormat = outputFormat;
+    if (outputSlug) data.task.outputSlug = outputSlug;
+
+    const body = `\n# ${slug} — Delegation Contract\n\nDelegated to ${delegateSlug}: ${description}\n\n## Status\nActive — awaiting completion.\n`;
+    const output = matter.stringify(body, data);
+    await writeFile(filePath, output, "utf-8");
+
+    return {
+      content: [{
+        type: "text" as const,
+        text: `Created contracts/${slug}.md (status: active)`,
+      }],
+    };
+  }
+);
+
+// --- Tool: awp_contract_evaluate ---
+server.registerTool(
+  "awp_contract_evaluate",
+  {
+    title: "Evaluate Delegation Contract",
+    description:
+      "Evaluate a completed contract with scores for each criterion. Generates reputation signals for the delegate automatically.",
+    inputSchema: {
+      slug: z.string().describe("Contract slug"),
+      scores: z.record(z.string(), z.number().min(0).max(1)).describe("Map of criterion name to score (0.0-1.0)"),
+    },
+  },
+  async ({ slug, scores }) => {
+    const root = getWorkspaceRoot();
+    const filePath = join(root, CONTRACTS_DIR, `${slug}.md`);
+
+    let fileData: { data: any; content: string };
+    try {
+      const raw = await readFile(filePath, "utf-8");
+      fileData = matter(raw);
+    } catch {
+      return {
+        content: [{ type: "text" as const, text: `Contract "${slug}" not found.` }],
+        isError: true,
+      };
+    }
+
+    if (fileData.data.status === "evaluated") {
+      return {
+        content: [{ type: "text" as const, text: "Contract has already been evaluated." }],
+        isError: true,
+      };
+    }
+
+    const criteria = fileData.data.evaluation.criteria;
+    const scoreMap = scores as Record<string, number>;
+    let weightedScore = 0;
+    for (const [name, weight] of Object.entries(criteria as Record<string, number>)) {
+      if (scoreMap[name] === undefined) {
+        return {
+          content: [{ type: "text" as const, text: `Missing score for criterion: ${name}` }],
+          isError: true,
+        };
+      }
+      weightedScore += weight * scoreMap[name];
+    }
+    weightedScore = Math.round(weightedScore * 1000) / 1000;
+
+    // Update contract
+    fileData.data.status = "evaluated";
+    fileData.data.evaluation.result = scores;
+    const contractOutput = matter.stringify(fileData.content, fileData.data);
+    await writeFile(filePath, contractOutput, "utf-8");
+
+    // Generate reputation signal for delegate
+    const evaluatorDid = await getAgentDid(root);
+    const delegateSlug = fileData.data.delegateSlug;
+    const now = new Date();
+    const timestamp = now.toISOString();
+
+    const signal = {
+      source: evaluatorDid,
+      dimension: "reliability",
+      score: weightedScore,
+      timestamp,
+      evidence: fileData.data.id,
+      message: `Contract evaluation: ${fileData.data.task.description}`,
+    };
+
+    // Try to update delegate's reputation profile
+    const repPath = join(root, REPUTATION_DIR, `${delegateSlug}.md`);
+    let repUpdated = false;
+    try {
+      const repRaw = await readFile(repPath, "utf-8");
+      const repData = matter(repRaw);
+      repData.data.lastUpdated = timestamp;
+      repData.data.signals.push(signal);
+
+      if (!repData.data.dimensions) repData.data.dimensions = {};
+      const existing = repData.data.dimensions.reliability;
+      const ALPHA = 0.15;
+      const MS_PER_MONTH = 30.44 * 24 * 60 * 60 * 1000;
+
+      if (existing) {
+        const months = (now.getTime() - new Date(existing.lastSignal).getTime()) / MS_PER_MONTH;
+        const decayFactor = months > 0 ? Math.exp(-0.02 * months) : 1;
+        const decayed = 0.5 + (existing.score - 0.5) * decayFactor;
+        const newScore = ALPHA * weightedScore + (1 - ALPHA) * decayed;
+        const newSampleSize = existing.sampleSize + 1;
+        repData.data.dimensions.reliability = {
+          score: Math.round(newScore * 1000) / 1000,
+          confidence: Math.round((1 - 1 / (1 + newSampleSize * 0.1)) * 100) / 100,
+          sampleSize: newSampleSize,
+          lastSignal: timestamp,
+        };
+      } else {
+        repData.data.dimensions.reliability = {
+          score: weightedScore,
+          confidence: Math.round((1 - 1 / (1 + 1 * 0.1)) * 100) / 100,
+          sampleSize: 1,
+          lastSignal: timestamp,
+        };
+      }
+
+      const repOutput = matter.stringify(repData.content, repData.data);
+      await writeFile(repPath, repOutput, "utf-8");
+      repUpdated = true;
+    } catch {
+      // No profile — that's OK
+    }
+
+    const resultText = [
+      `Evaluated contracts/${slug}.md — weighted score: ${weightedScore}`,
+      repUpdated ? `Updated reputation/${delegateSlug}.md with reliability signal` : `Note: No reputation profile for ${delegateSlug} — signal not recorded`,
+    ].join("\n");
+
+    return {
+      content: [{ type: "text" as const, text: resultText }],
     };
   }
 );

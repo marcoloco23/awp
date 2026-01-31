@@ -18,6 +18,17 @@ import {
   artifactSearchCommand,
   artifactMergeCommand,
 } from "./commands/artifact.js";
+import {
+  reputationQueryCommand,
+  reputationSignalCommand,
+  reputationListCommand,
+} from "./commands/reputation.js";
+import {
+  contractCreateCommand,
+  contractListCommand,
+  contractShowCommand,
+  contractEvaluateCommand,
+} from "./commands/contract.js";
 
 const program = new Command();
 
@@ -127,5 +138,77 @@ artifact
   .argument("<source>", "Source artifact slug")
   .option("-m, --message <message>", "Merge message")
   .action(artifactMergeCommand);
+
+// awp reputation
+const reputation = program
+  .command("reputation")
+  .description("Reputation tracking operations (RDP)");
+
+reputation
+  .command("query")
+  .description("Query an agent's reputation profile")
+  .argument("[slug]", "Agent reputation slug (omit to list all)")
+  .option("-d, --dimension <dim>", "Filter by dimension")
+  .option("--domain <domain>", "Filter by domain competence")
+  .option("--raw", "Show raw scores without decay")
+  .action(reputationQueryCommand);
+
+reputation
+  .command("signal")
+  .description("Log a reputation signal for an agent")
+  .argument("<slug>", "Agent reputation slug")
+  .requiredOption("--dimension <dim>", "Dimension (reliability, epistemic-hygiene, coordination, domain-competence)")
+  .requiredOption("--score <n>", "Score (0.0-1.0)")
+  .option("--domain <domain>", "Domain (required for domain-competence)")
+  .option("--evidence <ref>", "Evidence reference (e.g., contract:slug, artifact:slug)")
+  .option("--message <msg>", "Human-readable note")
+  .option("--agent-did <did>", "Agent DID (required for first signal)")
+  .option("--agent-name <name>", "Agent name (required for first signal)")
+  .action(reputationSignalCommand);
+
+reputation
+  .command("list")
+  .description("List all tracked agents")
+  .action(reputationListCommand);
+
+// awp contract
+const contract = program
+  .command("contract")
+  .description("Delegation contract operations (RDP)");
+
+contract
+  .command("create")
+  .description("Create a new delegation contract")
+  .argument("<slug>", "Contract slug")
+  .requiredOption("--delegate <did>", "Delegate agent DID")
+  .requiredOption("--delegate-slug <slug>", "Delegate reputation profile slug")
+  .requiredOption("--description <text>", "Task description")
+  .option("--delegator <did>", "Delegator DID (defaults to workspace agent)")
+  .option("--deadline <date>", "Deadline (ISO 8601)")
+  .option("--output-format <type>", "Expected output type")
+  .option("--output-slug <slug>", "Expected output artifact slug")
+  .action(contractCreateCommand);
+
+contract
+  .command("list")
+  .description("List all contracts")
+  .option("--status <state>", "Filter by status (draft, active, completed, evaluated)")
+  .action(contractListCommand);
+
+contract
+  .command("show")
+  .description("Show contract details")
+  .argument("<slug>", "Contract slug")
+  .action(contractShowCommand);
+
+contract
+  .command("evaluate")
+  .description("Evaluate a contract and generate reputation signals")
+  .argument("<slug>", "Contract slug")
+  .option("--completeness <n>", "Completeness score (0.0-1.0)")
+  .option("--accuracy <n>", "Accuracy score (0.0-1.0)")
+  .option("--clarity <n>", "Clarity score (0.0-1.0)")
+  .option("--timeliness <n>", "Timeliness score (0.0-1.0)")
+  .action(contractEvaluateCommand);
 
 program.parse();

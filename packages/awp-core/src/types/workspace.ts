@@ -147,6 +147,8 @@ export interface HeartbeatTask {
 }
 
 import type { ArtifactFrontmatter } from "./artifact.js";
+import type { ReputationProfileFrontmatter } from "./reputation.js";
+import type { DelegationContractFrontmatter } from "./contract.js";
 
 /**
  * Union of all frontmatter types
@@ -160,7 +162,9 @@ export type AnyFrontmatter =
   | HeartbeatFrontmatter
   | MemoryDailyFrontmatter
   | MemoryLongtermFrontmatter
-  | ArtifactFrontmatter;
+  | ArtifactFrontmatter
+  | ReputationProfileFrontmatter
+  | DelegationContractFrontmatter;
 
 /**
  * A parsed workspace file — frontmatter + markdown body

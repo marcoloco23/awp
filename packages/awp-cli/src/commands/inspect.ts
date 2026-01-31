@@ -96,6 +96,26 @@ export async function inspectCommand(): Promise<void> {
     // artifacts/ doesn't exist yet — that's fine
   }
 
+  // Count reputation profiles
+  try {
+    const repDir = join(root, "reputation");
+    const files = await readdir(repDir);
+    const repFiles = files.filter((f) => f.endsWith(".md"));
+    console.log(`  reputation/: ${repFiles.length} profile(s)`);
+  } catch {
+    // reputation/ doesn't exist yet
+  }
+
+  // Count contracts
+  try {
+    const conDir = join(root, "contracts");
+    const files = await readdir(conDir);
+    const conFiles = files.filter((f) => f.endsWith(".md"));
+    console.log(`  contracts/: ${conFiles.length} contract(s)`);
+  } catch {
+    // contracts/ doesn't exist yet
+  }
+
   // Show capabilities and protocols
   if (info.manifest.capabilities?.length) {
     console.log("");

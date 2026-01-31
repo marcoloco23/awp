@@ -160,6 +160,12 @@ export async function initCommand(
   await mkdir(join(root, "artifacts"), { recursive: true });
   console.log("  Created artifacts/");
 
+  await mkdir(join(root, "reputation"), { recursive: true });
+  console.log("  Created reputation/");
+
+  await mkdir(join(root, "contracts"), { recursive: true });
+  console.log("  Created contracts/");
+
   console.log("");
   console.log(`AWP workspace initialized (${manifest.awp}).`);
   console.log(`Workspace ID: ${manifest.id}`);

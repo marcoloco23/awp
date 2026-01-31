@@ -20,13 +20,13 @@ Build the operating system for an agent economy, not another app inside it.
 │           Coordination Layer (Phase 4)               │
 │      task boards · swarms · dependency graphs        │
 ├─────────────────────────────────────────────────────┤
-│      Reputation & Delegation Layer (Phase 3)         │
+│      Reputation & Delegation Layer (Phase 3) ✅      │
 │   multi-dim reputation · contracts · disputes        │
 ├─────────────────────────────────────────────────────┤
-│        Shared Memory Protocol (Phase 2)              │
+│        Shared Memory Protocol (Phase 2) ✅           │
 │   versioned artifacts · fork/merge · provenance      │
 ├─────────────────────────────────────────────────────┤
-│     Agent Workspace Protocol (Phase 1) ← HERE       │
+│     Agent Workspace Protocol (Phase 1) ✅            │
 │   identity · soul · memory · workspace manifest      │
 ├─────────────────────────────────────────────────────┤
 │          Existing Protocols (not ours)               │
@@ -52,133 +52,48 @@ AWP is complementary to all existing protocols, competitive with none. It sits b
 - `.awp/workspace.json` manifest created
 - `templates/clawd/` — reference implementation template
 
----
+## What's Built (Phase 2 — Complete)
 
-## Phase 2: Shared Memory Protocol (SMP)
+### Shared Memory Protocol (SMP)
+- `spec/smp/smp-spec.md` — Full SMP specification
+- `spec/schemas/knowledge-artifact.schema.json` — Knowledge artifact JSON Schema
+- CLI extensions: `awp artifact create`, `awp artifact commit`, `awp artifact list`, `awp artifact search`, `awp artifact log`, `awp artifact merge`
+- MCP extensions: `awp_artifact_read`, `awp_artifact_write`, `awp_artifact_list`, `awp_artifact_search`
+- Versioned artifacts with provenance, confidence scores, and additive merge
 
-**Problem:** Agents produce knowledge but have no way to version, share, fork, or merge it across organizational boundaries. Memory is trapped in individual chat logs.
+## What's Built (Phase 3 — Complete)
 
-**What to build:**
-
-### Knowledge Artifact Format
-A versioned document with structured metadata:
-```yaml
----
-awp: "0.1.0"
-smp: "1.0"
-type: "knowledge-artifact"
-id: "artifact:llm-context-research"
-title: "LLM Context Window Research"
-authors:
-  - did:key:zAgent1
-  - did:key:zAgent2
-branch: "main"
-version: 7
-confidence: 0.85
-scope: ["ai-research"]
-provenance:
-  - agent: "did:key:zAgent1"
-    action: "created"
-    timestamp: "2026-02-15T10:30:00Z"
-access:
-  read: ["org:acme"]
-  write: ["did:key:zAgent1"]
-  fork: "public"
----
-```
-
-### Merge Strategies for Knowledge (not code)
-- **Additive** — both agents' claims combined (research aggregation)
-- **Authority** — agent with higher domain reputation wins (contradictory facts)
-- **Consensus** — N agents must agree before a fact is promoted
-- **Human escalation** — flag for human when above can't resolve
-
-Not CRDTs (wrong problem — agents don't co-edit simultaneously). Not structured diff/patch (too low-level). The merge operates on *claims* and *confidence*, not text.
-
-### Components
-- `spec/smp/smp-spec.md` — Shared Memory Protocol specification
-- `packages/awp-smp/` — Library: create, version, branch, merge, sync artifacts
-- CLI extensions: `awp artifact create/commit/branch/merge/share/fork`
-- MCP extensions: `awp_artifact_read`, `awp_artifact_write`, `awp_artifact_search`
-- `packages/awp-sync/` — Workspace-to-workspace artifact sync (git-backed, A2A transport)
-
-### Standalone Value
-- Agents version their knowledge, not just memory logs
-- Multiple agents share and merge findings on the same project
-- Full audit trail of who contributed what
-- Knowledge artifacts are forkable — build on public research
+### Reputation & Delegation Protocol (RDP)
+- `spec/rdp/rdp-spec.md` — Full RDP specification
+- `spec/schemas/reputation-profile.schema.json` — Reputation profile JSON Schema
+- `spec/schemas/delegation-contract.schema.json` — Delegation contract JSON Schema
+- Core types: `ReputationProfileFrontmatter`, `ReputationDimension`, `ReputationSignal`, `DelegationContractFrontmatter`, `ContractTask`, `ContractScope`, `ContractConstraints`, `ContractEvaluation`
+- CLI: `awp reputation query|signal|list` + `awp contract create|list|show|evaluate`
+- MCP: `awp_reputation_query`, `awp_reputation_signal`, `awp_contract_create`, `awp_contract_evaluate`
+- EWMA score updates (α=0.15), time-based decay (0.02/month, floor 0.5), confidence from sample size
+- Contract evaluation automatically generates reputation signals for delegate
 
 ---
 
-## Phase 3: Reputation & Delegation Protocol (RDP)
+## Phase 2: Shared Memory Protocol (SMP) — ✅ Complete (v0.2.0)
 
-**Problem:** No standard for evaluating agent trustworthiness or defining cognitive contracts. Current systems are binary (trusted/untrusted) with no decay, no context, no domain specificity.
+Versioned knowledge artifacts with provenance, confidence scores, and merge. See `spec/smp/smp-spec.md`.
 
-**What to build:**
+**Deferred to future:**
+- `packages/awp-sync/` — Workspace-to-workspace artifact sync (needs A2A transport)
+- Authority/consensus merge strategies (need multi-agent reputation — now available from Phase 3)
 
-### Multi-Dimensional Reputation
-```yaml
-dimensions:
-  reliability:
-    score: 0.92
-    confidence: 0.85
-    sample_size: 47
-    decay_rate: 0.02      # per month
-  epistemic_hygiene:
-    score: 0.88
-    confidence: 0.72
-  domain_competence:
-    "ai-research": { score: 0.95, confidence: 0.90 }
-    "legal-analysis": { score: 0.45, confidence: 0.30 }
-  coordination_behavior:
-    score: 0.78
-    confidence: 0.60
-```
+---
 
-Key design decisions:
-- **Decay built in** — scores decrease without new signals (prevents immortal feudal lords)
-- **Confidence separate from score** — low data ≠ low trust, it means *unknown*
-- **Domain competence is a map** — an agent's reputation in "ai-research" is independent of "legal-analysis"
-- **Cross-org transfer is lossy** — your team's high rating shouldn't automatically transfer to external orgs
+## Phase 3: Reputation & Delegation Protocol (RDP) — ✅ Complete (v0.3.0)
 
-### Delegation Contracts
-```yaml
-type: "delegation-contract"
-delegator: "did:key:zJarvis"
-delegate: "did:key:zResearchBot"
-task:
-  description: "Research LLM context window techniques"
-  scope:
-    include: ["papers 2025-2026", "benchmarks"]
-    exclude: ["proprietary data", "speculation"]
-  output_format: "knowledge-artifact"
-constraints:
-  require_citations: true
-  confidence_threshold: 0.7
-evaluation:
-  criteria:
-    completeness: 0.3
-    accuracy: 0.4
-    clarity: 0.2
-    timeliness: 0.1
-```
+Multi-dimensional reputation profiles with EWMA scoring, time-based decay, delegation contracts, and contract evaluation that auto-generates reputation signals. See `spec/rdp/rdp-spec.md`.
 
-### Dispute Resolution (tiered)
-1. Automated rule matching (clear, measurable criteria)
-2. Third-party agent review (neutral, high-reputation domain expert)
-3. Consensus panel (multiple agents vote)
-4. Human escalation (governance authority decides)
-
-### Components
-- `spec/rdp/rdp-spec.md` — Reputation & Delegation Protocol specification
-- `packages/awp-rdp/` — Bayesian reputation updating, lossy cross-org transfer, contract lifecycle, dispute resolution
-- CLI extensions: `awp reputation query`, `awp contract create/evaluate`
-- MCP extensions: `awp_reputation_query`, `awp_contract_create`, `awp_dispute_initiate`
-
-### Standalone Value
-- Agents query reputation before delegating work
-- Delegation contracts provide clear accountability
-- Dispute resolution prevents tragedy of the commons
+**Deferred to future:**
+- Dispute resolution system (needs multi-agent adjudication)
+- Cross-org lossy reputation transfer (needs multi-workspace sync)
+- Consensus panels / third-party review (needs A2A transport)
+- Authority-based merge for conflicting reputation signals
 
 ---
 
@@ -254,8 +169,8 @@ awp/                           # Public repo: github.com/marcoloco23/awp
   spec/
     awp-spec.md                # Phase 1: Core specification ✅
     schemas/                   # JSON Schemas ✅
-    smp/smp-spec.md            # Phase 2: Shared Memory Protocol
-    rdp/rdp-spec.md            # Phase 3: Reputation & Delegation
+    smp/smp-spec.md            # Phase 2: Shared Memory Protocol ✅
+    rdp/rdp-spec.md            # Phase 3: Reputation & Delegation ✅
     coord/coord-spec.md        # Phase 4: Coordination Protocol
 
   packages/
