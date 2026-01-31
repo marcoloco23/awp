@@ -2,7 +2,7 @@ import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { AWP_VERSION, RDP_VERSION, CONTRACTS_DIR } from "@agent-workspace/core";
 import type { DelegationContractFrontmatter } from "@agent-workspace/core";
-import { findWorkspaceRoot } from "../lib/workspace.js";
+import { requireWorkspaceRoot } from "../lib/cli-utils.js";
 import { serializeWorkspaceFile } from "../lib/frontmatter.js";
 import {
   validateSlug,
@@ -29,11 +29,7 @@ export async function contractCreateCommand(
     outputSlug?: string;
   }
 ): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   if (!validateSlug(slug)) {
     console.error(`Invalid slug: ${slug} (must be lowercase alphanumeric + hyphens)`);
@@ -91,11 +87,7 @@ export async function contractCreateCommand(
  * awp contract list
  */
 export async function contractListCommand(options: { status?: string }): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   let contracts = await listContracts(root);
 
@@ -126,11 +118,7 @@ export async function contractListCommand(options: { status?: string }): Promise
  * awp contract show <slug>
  */
 export async function contractShowCommand(slug: string): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   let contract;
   try {
@@ -201,11 +189,7 @@ export async function contractEvaluateCommand(
     timeliness?: string;
   }
 ): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   let contract;
   try {

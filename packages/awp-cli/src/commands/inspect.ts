@@ -1,17 +1,12 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { findWorkspaceRoot, inspectWorkspace } from "../lib/workspace.js";
+import { inspectWorkspace } from "../lib/workspace.js";
+import { requireWorkspaceRoot } from "../lib/cli-utils.js";
 import { parseWorkspaceFile } from "../lib/frontmatter.js";
 import type { IdentityFrontmatter, SoulFrontmatter } from "@agent-workspace/core";
 
 export async function inspectCommand(): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error(
-      "Error: Not in an AWP workspace. Run 'awp init' to create one."
-    );
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   const info = await inspectWorkspace(root);
 
@@ -30,8 +25,7 @@ export async function inspectCommand(): Promise<void> {
   // Show agent identity
   try {
     const identityPath = join(root, "IDENTITY.md");
-    const identity =
-      await parseWorkspaceFile<IdentityFrontmatter>(identityPath);
+    const identity = await parseWorkspaceFile<IdentityFrontmatter>(identityPath);
     const fm = identity.frontmatter;
     console.log("");
     console.log("Agent");

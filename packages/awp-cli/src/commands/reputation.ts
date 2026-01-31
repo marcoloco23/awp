@@ -2,7 +2,7 @@ import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { AWP_VERSION, RDP_VERSION, REPUTATION_DIR } from "@agent-workspace/core";
 import type { ReputationProfileFrontmatter, ReputationSignal } from "@agent-workspace/core";
-import { findWorkspaceRoot } from "../lib/workspace.js";
+import { requireWorkspaceRoot } from "../lib/cli-utils.js";
 import { serializeWorkspaceFile } from "../lib/frontmatter.js";
 import {
   validateSlug,
@@ -21,11 +21,7 @@ export async function reputationQueryCommand(
   slug: string | undefined,
   options: { dimension?: string; domain?: string; raw?: boolean }
 ): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   // If no slug, list all profiles
   if (!slug) {
@@ -131,11 +127,7 @@ export async function reputationSignalCommand(
     agentName?: string;
   }
 ): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   if (!validateSlug(slug)) {
     console.error(`Invalid slug: ${slug} (must be lowercase alphanumeric + hyphens)`);
@@ -240,11 +232,7 @@ export async function reputationSignalCommand(
  * awp reputation list
  */
 export async function reputationListCommand(): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   const profiles = await listProfiles(root);
 

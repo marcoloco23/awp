@@ -6,6 +6,7 @@
 
 import { resolve, join } from "node:path";
 import { readFile, readdir } from "node:fs/promises";
+import { SOCIETIES_DIR } from "@agent-workspace/agent";
 import type { ExperimentResult } from "@agent-workspace/agent";
 
 /**
@@ -22,7 +23,7 @@ export async function experimentSocietyCreateCommand(options: {
   const manifestoPath = resolve(options.manifesto);
   const numAgents = parseInt(options.agents, 10);
   const seed = options.seed ? parseInt(options.seed, 10) : undefined;
-  const outputDir = options.output || "societies";
+  const outputDir = options.output || SOCIETIES_DIR;
 
   if (isNaN(numAgents) || numAgents < 1) {
     console.error("Error: --agents must be a positive integer");
@@ -69,11 +70,17 @@ export async function experimentRunCommand(options: {
     AnthropicAgent,
     ExperimentOrchestrator,
     MetricsCollector,
+    SOCIETIES_DIR,
+    DEFAULT_OPENAI_MODEL,
+    DEFAULT_ANTHROPIC_MODEL,
+    PROVIDERS,
+    estimateCost,
   } = await import("@agent-workspace/agent");
 
   const numCycles = parseInt(options.cycles, 10);
-  const provider = options.provider || "openai";
-  const defaultModel = provider === "anthropic" ? "claude-sonnet-4-20250514" : "gpt-4o-mini";
+  const provider = options.provider || PROVIDERS.OPENAI;
+  const defaultModel =
+    provider === PROVIDERS.ANTHROPIC ? DEFAULT_ANTHROPIC_MODEL : DEFAULT_OPENAI_MODEL;
   const model = options.model || defaultModel;
 
   if (isNaN(numCycles) || numCycles < 1) {
@@ -81,14 +88,14 @@ export async function experimentRunCommand(options: {
     process.exit(1);
   }
 
-  if (!["openai", "anthropic"].includes(provider)) {
+  if (![PROVIDERS.OPENAI, PROVIDERS.ANTHROPIC].includes(provider as typeof PROVIDERS.OPENAI)) {
     console.error("Error: --provider must be 'openai' or 'anthropic'");
     process.exit(1);
   }
 
   try {
     // Load society
-    const manager = new SocietyManager("societies");
+    const manager = new SocietyManager(SOCIETIES_DIR);
     const society = await manager.loadSociety(options.society);
 
     console.log(`Loaded society: ${society.id}`);
@@ -142,18 +149,10 @@ export async function experimentRunCommand(options: {
     console.log(`Duration: ${(result.aggregateMetrics.totalDurationMs / 1000).toFixed(1)}s`);
 
     // Estimate cost based on provider
-    let cost: number;
-    if (provider === "anthropic") {
-      // Claude Sonnet pricing (per million tokens): $3 input, $15 output
-      const inputCost = (result.aggregateMetrics.totalTokens * 0.5 * 3) / 1_000_000;
-      const outputCost = (result.aggregateMetrics.totalTokens * 0.5 * 15) / 1_000_000;
-      cost = inputCost + outputCost;
-    } else {
-      // gpt-4o-mini pricing (per million tokens): $0.15 input, $0.6 output
-      const inputCost = (result.aggregateMetrics.totalTokens * 0.5 * 0.15) / 1_000_000;
-      const outputCost = (result.aggregateMetrics.totalTokens * 0.5 * 0.6) / 1_000_000;
-      cost = inputCost + outputCost;
-    }
+    const cost = estimateCost(
+      provider as typeof PROVIDERS.OPENAI,
+      result.aggregateMetrics.totalTokens
+    );
     console.log(`Est. cost: $${cost.toFixed(4)}`);
   } catch (error) {
     console.error("Error running experiment:", error instanceof Error ? error.message : error);
@@ -181,10 +180,10 @@ export async function experimentCycleCommand(options: {
  * awp experiment list
  */
 export async function experimentListCommand(): Promise<void> {
-  const { SocietyManager } = await import("@agent-workspace/agent");
+  const { SocietyManager, SOCIETIES_DIR } = await import("@agent-workspace/agent");
 
   try {
-    const manager = new SocietyManager("societies");
+    const manager = new SocietyManager(SOCIETIES_DIR);
     const societies = await manager.listSocieties();
 
     if (societies.length === 0) {
@@ -211,10 +210,10 @@ export async function experimentListCommand(): Promise<void> {
  * awp experiment show <society>
  */
 export async function experimentShowCommand(societyId: string): Promise<void> {
-  const { SocietyManager } = await import("@agent-workspace/agent");
+  const { SocietyManager, SOCIETIES_DIR } = await import("@agent-workspace/agent");
 
   try {
-    const manager = new SocietyManager("societies");
+    const manager = new SocietyManager(SOCIETIES_DIR);
     const society = await manager.loadSociety(societyId);
 
     console.log(`Society: ${society.id}`);
@@ -265,10 +264,10 @@ export async function experimentShowCommand(societyId: string): Promise<void> {
  * awp society pause <id>
  */
 export async function societyPauseCommand(societyId: string): Promise<void> {
-  const { SocietyManager } = await import("@agent-workspace/agent");
+  const { SocietyManager, SOCIETIES_DIR } = await import("@agent-workspace/agent");
 
   try {
-    const manager = new SocietyManager("societies");
+    const manager = new SocietyManager(SOCIETIES_DIR);
     await manager.pauseSociety(societyId);
     console.log(`Society paused: ${societyId}`);
   } catch (error) {
@@ -281,10 +280,10 @@ export async function societyPauseCommand(societyId: string): Promise<void> {
  * awp society archive <id>
  */
 export async function societyArchiveCommand(societyId: string): Promise<void> {
-  const { SocietyManager } = await import("@agent-workspace/agent");
+  const { SocietyManager, SOCIETIES_DIR } = await import("@agent-workspace/agent");
 
   try {
-    const manager = new SocietyManager("societies");
+    const manager = new SocietyManager(SOCIETIES_DIR);
     await manager.archiveSociety(societyId);
     console.log(`Society archived: ${societyId}`);
   } catch (error) {
@@ -297,10 +296,10 @@ export async function societyArchiveCommand(societyId: string): Promise<void> {
  * awp society resume <id>
  */
 export async function societyResumeCommand(societyId: string): Promise<void> {
-  const { SocietyManager } = await import("@agent-workspace/agent");
+  const { SocietyManager, SOCIETIES_DIR } = await import("@agent-workspace/agent");
 
   try {
-    const manager = new SocietyManager("societies");
+    const manager = new SocietyManager(SOCIETIES_DIR);
     await manager.resumeSociety(societyId);
     console.log(`Society resumed: ${societyId}`);
   } catch (error) {
@@ -322,13 +321,13 @@ async function loadExperimentResult(pathOrId: string): Promise<ExperimentResult>
   if (pathOrId.includes(":")) {
     // Format: society-id:experiment-id
     const [societyId, expId] = pathOrId.split(":");
-    fullPath = join("societies", societyId, "metrics", `${expId}.json`);
+    fullPath = join(SOCIETIES_DIR, societyId, "metrics", `${expId}.json`);
   } else if (pathOrId.endsWith(".json")) {
     // Full path to JSON file
     fullPath = resolve(pathOrId);
   } else {
     // Assume it's a society ID - find the latest experiment
-    const metricsDir = join("societies", pathOrId, "metrics");
+    const metricsDir = join(SOCIETIES_DIR, pathOrId, "metrics");
     const files = await readdir(metricsDir);
     const resultFiles = files.filter((f) => f.endsWith(".json")).sort();
     if (resultFiles.length === 0) {

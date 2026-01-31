@@ -10,9 +10,10 @@ import { join } from "node:path";
 import matter from "gray-matter";
 import { AWP_VERSION, MANIFEST_PATH } from "@agent-workspace/core";
 import type { SocietyConfig, ManifestoConfig } from "./types.js";
+import { SOCIETIES_DIR } from "./constants.js";
 
 /** Default society root directory */
-const DEFAULT_SOCIETIES_DIR = "societies";
+const DEFAULT_SOCIETIES_DIR = SOCIETIES_DIR;
 
 /**
  * Manages society creation and lifecycle.
@@ -290,10 +291,21 @@ export async function parseManifesto(path: string): Promise<ManifestoConfig> {
   const raw = await readFile(path, "utf-8");
   const { data } = matter(raw);
 
+  // Validate required fields
+  if (typeof data.id !== "string" || !data.id) {
+    throw new Error(`Manifesto missing required field: id`);
+  }
+  if (typeof data.name !== "string" || !data.name) {
+    throw new Error(`Manifesto missing required field: name`);
+  }
+  if (typeof data.version !== "string" || !data.version) {
+    throw new Error(`Manifesto missing required field: version`);
+  }
+
   return {
-    id: data.id as string,
-    name: data.name as string,
-    version: data.version as string,
+    id: data.id,
+    name: data.name,
+    version: data.version,
     values: (data.values as Record<string, number>) || {},
     fitness: (data.fitness as Record<string, number>) || {},
     purity: (data.purity as Record<string, number>) || {},

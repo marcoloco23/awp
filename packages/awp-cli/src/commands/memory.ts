@@ -2,7 +2,7 @@ import { readdir, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import Fuse from "fuse.js";
 import { AWP_VERSION, MEMORY_DIR } from "@agent-workspace/core";
-import { findWorkspaceRoot } from "../lib/workspace.js";
+import { requireWorkspaceRoot } from "../lib/cli-utils.js";
 import { parseWorkspaceFile, writeWorkspaceFile } from "../lib/frontmatter.js";
 import type { MemoryDailyFrontmatter, MemoryEntry } from "@agent-workspace/core";
 
@@ -15,11 +15,7 @@ function currentTime(): string {
 }
 
 export async function memoryLogCommand(message: string, options: { tags?: string }): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Error: Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   const memDir = join(root, MEMORY_DIR);
   await mkdir(memDir, { recursive: true });
@@ -88,11 +84,7 @@ export async function memorySearchCommand(
   query: string,
   options: MemorySearchOptions = {}
 ): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Error: Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   const memDir = join(root, MEMORY_DIR);
   const { from, to, tag, fuzzy = false, limit } = options;

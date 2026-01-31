@@ -62,6 +62,7 @@ export function validatePath(root: string, targetPath: string): string {
  *
  * @param dateStr - The date string to validate
  * @returns true if valid, false otherwise
+ * @internal Utility function for future validation use
  */
 export function isValidDate(dateStr: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
@@ -76,6 +77,7 @@ export function isValidDate(dateStr: string): boolean {
  *
  * @param timestamp - The timestamp string to validate
  * @returns true if valid, false otherwise
+ * @internal Utility function for future validation use
  */
 export function isValidTimestamp(timestamp: string): boolean {
   const date = new Date(timestamp);

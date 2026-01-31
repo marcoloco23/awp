@@ -8,6 +8,7 @@ import OpenAI from "openai";
 import type { AgentTask, TaskResult, ToolCall } from "./types.js";
 import { BaseAgent, MAX_ITERATIONS, DEFAULT_TIMEOUT_MS } from "./base-agent.js";
 import { AWP_TOOLS, executeToolCall } from "./tools.js";
+import { DEFAULT_OPENAI_MODEL } from "./constants.js";
 
 /**
  * OpenAI-based agent that executes AWP tasks using function calling.
@@ -18,7 +19,7 @@ export class OpenAIAgent extends BaseAgent {
   constructor(
     id: string,
     workspace: string,
-    private readonly model: string = "gpt-4o-mini",
+    private readonly model: string = DEFAULT_OPENAI_MODEL,
     apiKey?: string
   ) {
     super(id, workspace);
@@ -86,6 +87,9 @@ export class OpenAIAgent extends BaseAgent {
         });
 
         const choice = response.choices[0];
+        if (!choice) {
+          throw new Error("OpenAI returned empty choices array");
+        }
         const message = choice.message;
 
         // Track tokens

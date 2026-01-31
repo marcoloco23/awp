@@ -8,6 +8,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { AgentTask, TaskResult, ToolCall, ToolDefinition } from "./types.js";
 import { BaseAgent, MAX_ITERATIONS, DEFAULT_TIMEOUT_MS } from "./base-agent.js";
 import { AWP_TOOLS, executeToolCall } from "./tools.js";
+import { DEFAULT_ANTHROPIC_MODEL, DEFAULT_ANTHROPIC_MAX_TOKENS } from "./constants.js";
 
 /**
  * Convert OpenAI-style tool definitions to Anthropic format.
@@ -29,7 +30,7 @@ export class AnthropicAgent extends BaseAgent {
   constructor(
     id: string,
     workspace: string,
-    private readonly model: string = "claude-sonnet-4-20250514",
+    private readonly model: string = DEFAULT_ANTHROPIC_MODEL,
     apiKey?: string
   ) {
     super(id, workspace);
@@ -87,7 +88,7 @@ export class AnthropicAgent extends BaseAgent {
         // Call Anthropic
         const response = await this.client.messages.create({
           model: this.model,
-          max_tokens: 4096,
+          max_tokens: DEFAULT_ANTHROPIC_MAX_TOKENS,
           system: systemPrompt,
           tools: anthropicTools,
           messages,

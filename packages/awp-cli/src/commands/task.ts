@@ -2,7 +2,7 @@ import { writeFile } from "node:fs/promises";
 import { AWP_VERSION, CDP_VERSION } from "@agent-workspace/core";
 import type { TaskFrontmatter } from "@agent-workspace/core";
 import { analyzeGraph, getTaskSlug, type TaskNode } from "@agent-workspace/utils";
-import { findWorkspaceRoot } from "../lib/workspace.js";
+import { requireWorkspaceRoot } from "../lib/cli-utils.js";
 import { serializeWorkspaceFile } from "../lib/frontmatter.js";
 import {
   validateSlug,
@@ -33,11 +33,7 @@ export async function taskCreateCommand(
     contract?: string;
   }
 ): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   if (!validateSlug(taskSlug)) {
     console.error(`Invalid task slug: ${taskSlug} (must be lowercase alphanumeric + hyphens)`);
@@ -133,11 +129,7 @@ export async function taskListCommand(
   projectSlug: string,
   options: { status?: string; assignee?: string }
 ): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   let tasks = await listTasks(root, projectSlug);
 
@@ -184,11 +176,7 @@ export async function taskUpdateCommand(
     assigneeSlug?: string;
   }
 ): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   let task;
   try {
@@ -286,11 +274,7 @@ export async function taskUpdateCommand(
  * awp task show <project> <slug>
  */
 export async function taskShowCommand(projectSlug: string, taskSlug: string): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   let task;
   try {
@@ -347,11 +331,7 @@ export async function taskGraphCommand(
   projectSlug: string,
   options: { check?: boolean; json?: boolean }
 ): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   // Load all tasks for the project
   const tasks = await listTasks(root, projectSlug);

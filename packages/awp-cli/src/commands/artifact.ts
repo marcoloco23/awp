@@ -2,7 +2,7 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { AWP_VERSION, SMP_VERSION, ARTIFACTS_DIR } from "@agent-workspace/core";
 import type { ArtifactFrontmatter, ProvenanceEntry } from "@agent-workspace/core";
-import { findWorkspaceRoot } from "../lib/workspace.js";
+import { requireWorkspaceRoot } from "../lib/cli-utils.js";
 import { writeWorkspaceFile } from "../lib/frontmatter.js";
 import {
   validateSlug,
@@ -21,11 +21,7 @@ export async function artifactCreateCommand(
   slug: string,
   options: { title?: string; tags?: string; confidence?: number }
 ): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Error: Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   if (!validateSlug(slug)) {
     console.error(`Error: Invalid slug "${slug}". Must match [a-z0-9][a-z0-9-]*`);
@@ -92,11 +88,7 @@ export async function artifactCommitCommand(
   slug: string,
   options: { message?: string; confidence?: number }
 ): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Error: Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   let artifact;
   try {
@@ -104,7 +96,6 @@ export async function artifactCommitCommand(
   } catch {
     console.error(`Error: Artifact "${slug}" not found.`);
     process.exit(1);
-    return;
   }
 
   const did = await getAgentDid(root);
@@ -140,11 +131,7 @@ export async function artifactCommitCommand(
 // --- awp artifact log ---
 
 export async function artifactLogCommand(slug: string): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Error: Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   let artifact;
   try {
@@ -152,7 +139,6 @@ export async function artifactLogCommand(slug: string): Promise<void> {
   } catch {
     console.error(`Error: Artifact "${slug}" not found.`);
     process.exit(1);
-    return;
   }
 
   const fm = artifact.frontmatter;
@@ -173,11 +159,7 @@ export async function artifactLogCommand(slug: string): Promise<void> {
 // --- awp artifact list ---
 
 export async function artifactListCommand(options: { tag?: string }): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Error: Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   let artifacts = await listArtifacts(root);
 
@@ -213,11 +195,7 @@ export async function artifactListCommand(options: { tag?: string }): Promise<vo
 // --- awp artifact search ---
 
 export async function artifactSearchCommand(query: string): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Error: Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   const artifacts = await listArtifacts(root);
   const queryLower = query.toLowerCase();
@@ -300,11 +278,7 @@ export async function artifactMergeCommand(
   sourceSlug: string,
   options: { message?: string; strategy?: string }
 ): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Error: Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   const strategy = options.strategy || "additive";
   if (strategy !== "additive" && strategy !== "authority") {
@@ -318,7 +292,6 @@ export async function artifactMergeCommand(
   } catch {
     console.error(`Error: Target artifact "${targetSlug}" not found.`);
     process.exit(1);
-    return;
   }
 
   try {
@@ -326,7 +299,6 @@ export async function artifactMergeCommand(
   } catch {
     console.error(`Error: Source artifact "${sourceSlug}" not found.`);
     process.exit(1);
-    return;
   }
 
   const did = await getAgentDid(root);

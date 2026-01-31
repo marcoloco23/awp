@@ -1,7 +1,8 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { AWP_VERSION, MEMORY_DIR, ARTIFACTS_DIR } from "@agent-workspace/core";
-import { findWorkspaceRoot, inspectWorkspace } from "../lib/workspace.js";
+import { inspectWorkspace } from "../lib/workspace.js";
+import { requireWorkspaceRoot } from "../lib/cli-utils.js";
 import { listProfiles, computeDecayedScore } from "../lib/reputation.js";
 import { listContracts } from "../lib/contract.js";
 import { listProjects, listTasks } from "../lib/project.js";
@@ -10,11 +11,7 @@ import { listProjects, listTasks } from "../lib/project.js";
  * awp status — rich workspace overview
  */
 export async function statusCommand(): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   const info = await inspectWorkspace(root);
   const now = new Date();

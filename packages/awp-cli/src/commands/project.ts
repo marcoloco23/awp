@@ -1,12 +1,8 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import {
-  AWP_VERSION,
-  CDP_VERSION,
-  PROJECTS_DIR,
-} from "@agent-workspace/core";
+import { AWP_VERSION, CDP_VERSION, PROJECTS_DIR } from "@agent-workspace/core";
 import type { ProjectFrontmatter } from "@agent-workspace/core";
-import { findWorkspaceRoot } from "../lib/workspace.js";
+import { requireWorkspaceRoot } from "../lib/cli-utils.js";
 import { serializeWorkspaceFile } from "../lib/frontmatter.js";
 import {
   validateSlug,
@@ -30,16 +26,10 @@ export async function projectCreateCommand(
     tags?: string;
   }
 ): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   if (!validateSlug(slug)) {
-    console.error(
-      `Invalid slug: ${slug} (must be lowercase alphanumeric + hyphens)`
-    );
+    console.error(`Invalid slug: ${slug} (must be lowercase alphanumeric + hyphens)`);
     process.exit(1);
   }
 
@@ -85,34 +75,23 @@ export async function projectCreateCommand(
 /**
  * awp project list
  */
-export async function projectListCommand(options: {
-  status?: string;
-}): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Not in an AWP workspace.");
-    process.exit(1);
-  }
+export async function projectListCommand(options: { status?: string }): Promise<void> {
+  const root = await requireWorkspaceRoot();
 
   let projects = await listProjects(root);
 
   if (options.status) {
-    projects = projects.filter(
-      (p) => p.frontmatter.status === options.status
-    );
+    projects = projects.filter((p) => p.frontmatter.status === options.status);
   }
 
   if (projects.length === 0) {
     console.log(
-      options.status
-        ? `No projects with status: ${options.status}`
-        : "No projects found."
+      options.status ? `No projects with status: ${options.status}` : "No projects found."
     );
     return;
   }
 
-  const header =
-    "SLUG                 TITLE                STATUS      TASKS       DEADLINE";
+  const header = "SLUG                 TITLE                STATUS      TASKS       DEADLINE";
   console.log(header);
   console.log("-".repeat(header.length));
 
@@ -131,11 +110,7 @@ export async function projectListCommand(options: {
  * awp project show <slug>
  */
 export async function projectShowCommand(slug: string): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   let project;
   try {
@@ -179,12 +154,11 @@ export async function projectShowCommand(slug: string): Promise<void> {
       const tfm = t.frontmatter;
       const taskSlug = tfm.id.split("/")[1];
       const assignee = tfm.assigneeSlug ? `@${tfm.assigneeSlug}` : "unassigned";
-      const priority = tfm.priority === "critical" || tfm.priority === "high"
-        ? ` [${tfm.priority.toUpperCase()}]`
-        : "";
-      console.log(
-        `  ${taskSlug.padEnd(24)} ${tfm.status.padEnd(14)} ${assignee}${priority}`
-      );
+      const priority =
+        tfm.priority === "critical" || tfm.priority === "high"
+          ? ` [${tfm.priority.toUpperCase()}]`
+          : "";
+      console.log(`  ${taskSlug.padEnd(24)} ${tfm.status.padEnd(14)} ${assignee}${priority}`);
     }
   }
 }
@@ -193,11 +167,7 @@ export async function projectShowCommand(slug: string): Promise<void> {
  * awp project close <slug>
  */
 export async function projectCloseCommand(slug: string): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   let project;
   try {

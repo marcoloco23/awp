@@ -3,7 +3,8 @@ import { join } from "node:path";
 import { generateKeyPairSync } from "node:crypto";
 import bs58 from "bs58";
 import { MANIFEST_PATH, type AgentCard } from "@agent-workspace/core";
-import { findWorkspaceRoot, loadManifest } from "../lib/workspace.js";
+import { loadManifest } from "../lib/workspace.js";
+import { requireWorkspaceRoot } from "../lib/cli-utils.js";
 import { parseWorkspaceFile, writeWorkspaceFile } from "../lib/frontmatter.js";
 import type { IdentityFrontmatter, SoulFrontmatter } from "@agent-workspace/core";
 
@@ -34,11 +35,7 @@ function generateDidKey(): { did: string; publicKeyMultibase: string; privateKey
 }
 
 export async function identityGenerateCommand(): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Error: Not in an AWP workspace. Run 'awp init' to create one.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   const manifest = await loadManifest(root);
 
@@ -81,11 +78,7 @@ export async function identityGenerateCommand(): Promise<void> {
 }
 
 export async function identityExportCommand(options: { format?: string }): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Error: Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   const manifest = await loadManifest(root);
   let identity: IdentityFrontmatter | null = null;
@@ -101,7 +94,6 @@ export async function identityExportCommand(options: { format?: string }): Promi
 
   if (!identity) {
     process.exit(1);
-    return;
   }
 
   // Read SOUL.md for vibe (personality description used as Agent Card description)

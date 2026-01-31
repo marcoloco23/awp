@@ -6,7 +6,7 @@ import {
   autoRecruitSwarm,
   getSwarmStaffingSummary,
 } from "@agent-workspace/utils";
-import { findWorkspaceRoot } from "../lib/workspace.js";
+import { requireWorkspaceRoot } from "../lib/cli-utils.js";
 import { serializeWorkspaceFile } from "../lib/frontmatter.js";
 import { listProfiles } from "../lib/reputation.js";
 import {
@@ -41,11 +41,7 @@ export async function swarmCreateCommand(
     vetoPower?: boolean;
   }
 ): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   if (!validateSlug(slug)) {
     console.error(`Invalid swarm slug: ${slug} (must be lowercase alphanumeric + hyphens)`);
@@ -109,11 +105,7 @@ export async function swarmRoleAddCommand(
     minReputation?: string[];
   }
 ): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   let swarm;
   try {
@@ -197,11 +189,7 @@ export async function swarmRecruitCommand(
   swarmSlug: string,
   options: { auto?: boolean }
 ): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   let swarm;
   try {
@@ -315,11 +303,7 @@ export async function swarmRecruitCommand(
  * awp swarm show <slug>
  */
 export async function swarmShowCommand(swarmSlug: string): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   let swarm;
   try {
@@ -381,11 +365,7 @@ export async function swarmShowCommand(swarmSlug: string): Promise<void> {
  * awp swarm list
  */
 export async function swarmListCommand(options: { status?: string }): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   let swarms = await listSwarms(root);
 
@@ -424,11 +404,7 @@ export async function swarmUpdateCommand(
   swarmSlug: string,
   options: { status?: string }
 ): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Not in an AWP workspace.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   let swarm;
   try {

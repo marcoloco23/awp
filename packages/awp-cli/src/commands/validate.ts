@@ -8,7 +8,8 @@ import {
   CONTRACTS_DIR,
   PROJECTS_DIR,
 } from "@agent-workspace/core";
-import { findWorkspaceRoot, loadManifest } from "../lib/workspace.js";
+import { loadManifest } from "../lib/workspace.js";
+import { requireWorkspaceRoot } from "../lib/cli-utils.js";
 import { parseWorkspaceFile } from "../lib/frontmatter.js";
 import { validateFrontmatter, validateManifest } from "../lib/schema.js";
 
@@ -26,6 +27,7 @@ async function validateDirectory(
   try {
     files = await readdir(dir);
   } catch {
+    // Directory doesn't exist — nothing to validate
     return { errors: 0, checked: 0 };
   }
 
@@ -72,6 +74,7 @@ async function validateProjectTasks(root: string): Promise<{ errors: number; che
     const entries = await readdir(projectsDir, { withFileTypes: true });
     projectDirs = entries.filter((e) => e.isDirectory()).map((e) => e.name);
   } catch {
+    // Projects directory doesn't exist — no tasks to validate
     return { errors: 0, checked: 0 };
   }
 
@@ -89,11 +92,7 @@ async function validateProjectTasks(root: string): Promise<{ errors: number; che
 }
 
 export async function validateCommand(options?: { quick?: boolean }): Promise<void> {
-  const root = await findWorkspaceRoot();
-  if (!root) {
-    console.error("Error: Not in an AWP workspace. Run 'awp init' to create one.");
-    process.exit(1);
-  }
+  const root = await requireWorkspaceRoot();
 
   console.log(`Validating workspace at ${root}...\n`);
   let hasErrors = false;
