@@ -29,6 +29,13 @@ import type {
   DailyLogSummary,
   WorkspaceHealth,
   WorkspaceStats,
+  SocietySummary,
+  SocietyDetail,
+  SocietyAgentSummary,
+  ExperimentListItem,
+  CycleDataPoint,
+  ReputationTimelineData,
+  ExperimentResult,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -426,4 +433,228 @@ export async function computeStats(): Promise<WorkspaceStats> {
     },
     memoryLogs: memLogs.length,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Societies & Experiments
+// ---------------------------------------------------------------------------
+
+const AGENT_COLORS = [
+  "var(--accent)",
+  "var(--success)",
+  "var(--warning)",
+  "var(--danger)",
+  "#a78bfa",
+  "#f472b6",
+];
+
+function getSocietiesRoot(): string {
+  if (process.env.AWP_SOCIETIES) return process.env.AWP_SOCIETIES;
+  return join(getRoot(), "..", "societies");
+}
+
+export async function listSocieties(statusFilter?: string): Promise<SocietySummary[]> {
+  const root = getSocietiesRoot();
+  let entries: string[];
+  try {
+    const all = await readdir(root, { withFileTypes: true });
+    entries = all.filter((e) => e.isDirectory()).map((e) => e.name);
+  } catch {
+    return [];
+  }
+
+  const societies: SocietySummary[] = [];
+  for (const dir of entries) {
+    try {
+      const raw = await readFile(join(root, dir, "society.json"), "utf-8");
+      const config = JSON.parse(raw);
+      if (statusFilter && config.status !== statusFilter) continue;
+
+      let experimentCount = 0;
+      try {
+        const metricFiles = await readdir(join(root, dir, "metrics"));
+        experimentCount = metricFiles.filter((f: string) => f.endsWith(".json")).length;
+      } catch {
+        /* no metrics dir */
+      }
+
+      societies.push({
+        id: config.id,
+        manifestoId: config.manifestoId,
+        status: config.status,
+        agentCount: Array.isArray(config.agents) ? config.agents.length : 0,
+        currentCycle: config.currentCycle || 0,
+        createdAt: config.createdAt,
+        experimentCount,
+      });
+    } catch {
+      /* skip directories without valid society.json */
+    }
+  }
+
+  return societies.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export async function readSocietyDetail(societyId: string): Promise<SocietyDetail | null> {
+  const root = getSocietiesRoot();
+  const societyDir = join(root, societyId);
+
+  let config;
+  try {
+    const raw = await readFile(join(societyDir, "society.json"), "utf-8");
+    config = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+
+  // Read agent info
+  const agents: SocietyAgentSummary[] = [];
+  const agentPaths: string[] = config.agents || [];
+  for (const agentPath of agentPaths) {
+    const agentId = agentPath.split("/").pop() || agentPath;
+    const agentDir = join(societyDir, agentId);
+    let name = agentId;
+    let did = "";
+
+    // Read IDENTITY.md for name
+    const identity = await parseFile<Record<string, unknown>>(join(agentDir, "IDENTITY.md"));
+    if (identity) {
+      name = (identity.frontmatter.name as string) || agentId;
+      did = (identity.frontmatter.did as string) || "";
+    }
+
+    agents.push({ id: agentId, name, did });
+  }
+
+  // Read experiments
+  const experiments: ExperimentListItem[] = [];
+  try {
+    const metricFiles = await readdir(join(societyDir, "metrics"));
+    for (const f of metricFiles.filter((mf: string) => mf.endsWith(".json"))) {
+      try {
+        const raw = await readFile(join(societyDir, "metrics", f), "utf-8");
+        const exp: ExperimentResult = JSON.parse(raw);
+        experiments.push({
+          experimentId: exp.experimentId,
+          societyId: exp.societyId,
+          startedAt: exp.startedAt,
+          endedAt: exp.endedAt,
+          totalCycles: exp.totalCycles,
+          overallSuccessRate: exp.aggregateMetrics.overallSuccessRate,
+          totalTasks: exp.aggregateMetrics.totalTasks,
+          totalTokens: exp.aggregateMetrics.totalTokens,
+          criteriaMetCount: exp.successCriteriaResults.filter((c) => c.met).length,
+          criteriaTotalCount: exp.successCriteriaResults.length,
+        });
+      } catch {
+        /* skip invalid experiment files */
+      }
+    }
+  } catch {
+    /* no metrics dir */
+  }
+
+  // Attach latest reputation to agents from most recent experiment
+  const sortedExps = [...experiments].sort(
+    (a, b) => new Date(b.endedAt).getTime() - new Date(a.endedAt).getTime(),
+  );
+  if (sortedExps.length > 0) {
+    try {
+      const latestRaw = await readFile(
+        join(societyDir, "metrics", sortedExps[0].experimentId + ".json"),
+        "utf-8",
+      );
+      const latest: ExperimentResult = JSON.parse(latestRaw);
+      for (const agent of agents) {
+        const did = agent.did;
+        if (did && latest.finalReputations[did]) {
+          agent.reputation = latest.finalReputations[did];
+        }
+      }
+    } catch {
+      /* skip reputation lookup if parse fails */
+    }
+  }
+
+  return {
+    config,
+    agents,
+    experiments: experiments.sort(
+      (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
+    ),
+  };
+}
+
+export async function readExperiment(
+  societyId: string,
+  experimentId: string,
+): Promise<ExperimentResult | null> {
+  const root = getSocietiesRoot();
+  try {
+    const raw = await readFile(
+      join(root, societyId, "metrics", experimentId + ".json"),
+      "utf-8",
+    );
+    return JSON.parse(raw) as ExperimentResult;
+  } catch {
+    return null;
+  }
+}
+
+export function computeCycleDataPoints(experiment: ExperimentResult): CycleDataPoint[] {
+  return experiment.cycles.map((c) => ({
+    cycle: c.cycleNumber,
+    successRate: c.metrics.successRate,
+    totalTokens: c.metrics.totalTokens,
+    tasksAttempted: c.metrics.tasksAttempted,
+    tasksSucceeded: c.metrics.tasksSucceeded,
+    tasksFailed: c.metrics.tasksFailed,
+  }));
+}
+
+export function computeReputationTimeline(experiment: ExperimentResult): ReputationTimelineData {
+  // Collect all agent IDs
+  const agentIds = Object.keys(experiment.finalReputations);
+  const agents = agentIds.map((id, i) => ({
+    id,
+    name: experiment.finalReputations[id].agentName || id,
+    color: AGENT_COLORS[i % AGENT_COLORS.length],
+  }));
+
+  // Initialize scores at 0.5 (default starting reputation)
+  const currentScores: Record<string, number> = {};
+  for (const id of agentIds) {
+    currentScores[id] = 50;
+  }
+
+  const points: Array<Record<string, number>> = [];
+
+  // Add initial point
+  const initialPoint: Record<string, number> = { cycle: 0 };
+  for (const id of agentIds) {
+    initialPoint[id] = 50;
+  }
+  points.push(initialPoint);
+
+  // Apply reputation changes cycle by cycle
+  for (const cycle of experiment.cycles) {
+    for (const change of cycle.reputationChanges) {
+      // Update overall score: use newScore averaged across dimensions
+      // Since changes come per-dimension, accumulate by computing
+      // the average of final dimension scores for the agent
+      const agentId = change.agentId;
+      if (agentId in currentScores) {
+        // delta is per-dimension; approximate overall as shift
+        currentScores[agentId] += change.delta * 100;
+      }
+    }
+
+    const point: Record<string, number> = { cycle: cycle.cycleNumber + 1 };
+    for (const id of agentIds) {
+      point[id] = Math.round(Math.max(0, Math.min(100, currentScores[id])));
+    }
+    points.push(point);
+  }
+
+  return { points, agents };
 }

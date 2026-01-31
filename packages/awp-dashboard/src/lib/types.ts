@@ -134,3 +134,63 @@ export interface WorkspaceStats {
   contracts: { total: number; active: number; evaluated: number };
   memoryLogs: number;
 }
+
+// ── Experiment / Society types ───────────────────────────────────────────────
+
+export type {
+  SocietyConfig,
+  ExperimentResult,
+  CycleResult,
+  CycleMetrics,
+  AgentReputation,
+} from "@agent-workspace/agent";
+
+export interface SocietySummary {
+  id: string;
+  manifestoId: string;
+  status: "active" | "paused" | "archived";
+  agentCount: number;
+  currentCycle: number;
+  createdAt: string;
+  experimentCount: number;
+}
+
+export interface SocietyAgentSummary {
+  id: string;
+  name: string;
+  did: string;
+  reputation?: import("@agent-workspace/agent").AgentReputation;
+}
+
+export interface ExperimentListItem {
+  experimentId: string;
+  societyId: string;
+  startedAt: string;
+  endedAt: string;
+  totalCycles: number;
+  overallSuccessRate: number;
+  totalTasks: number;
+  totalTokens: number;
+  criteriaMetCount: number;
+  criteriaTotalCount: number;
+}
+
+export interface SocietyDetail {
+  config: import("@agent-workspace/agent").SocietyConfig;
+  agents: SocietyAgentSummary[];
+  experiments: ExperimentListItem[];
+}
+
+export interface CycleDataPoint {
+  cycle: number;
+  successRate: number;
+  totalTokens: number;
+  tasksAttempted: number;
+  tasksSucceeded: number;
+  tasksFailed: number;
+}
+
+export interface ReputationTimelineData {
+  points: Array<Record<string, number>>;
+  agents: Array<{ id: string; name: string; color: string }>;
+}

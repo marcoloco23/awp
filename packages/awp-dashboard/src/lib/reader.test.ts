@@ -38,6 +38,11 @@ import {
   readLongTermMemory,
   computeWorkspaceHealth,
   computeStats,
+  listSocieties,
+  readSocietyDetail,
+  readExperiment,
+  computeCycleDataPoints,
+  computeReputationTimeline,
 } from "./reader";
 
 const mockReadFile = vi.mocked(readFile);
@@ -842,5 +847,324 @@ describe("computeStats", () => {
     expect(result.tasks.active).toBe(1);
     expect(result.contracts.total).toBe(1);
     expect(result.contracts.active).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Societies & Experiments
+// ---------------------------------------------------------------------------
+
+const SOCIETIES_ROOT = "/test/societies";
+
+const sampleSocietyConfig = {
+  id: "society-alpha",
+  manifestoId: "manifesto:test-v1",
+  path: "societies/society-alpha",
+  createdAt: "2026-01-30T10:00:00Z",
+  status: "active",
+  agents: ["societies/society-alpha/agent-01", "societies/society-alpha/agent-02"],
+  currentCycle: 3,
+  seed: 42,
+};
+
+const sampleExperimentResult = {
+  experimentId: "exp-society-alpha-123",
+  manifestoId: "manifesto:test-v1",
+  societyId: "society-alpha",
+  startedAt: "2026-01-30T10:05:00Z",
+  endedAt: "2026-01-30T10:15:00Z",
+  totalCycles: 2,
+  cycles: [
+    {
+      cycleNumber: 0,
+      startedAt: "2026-01-30T10:05:00Z",
+      endedAt: "2026-01-30T10:10:00Z",
+      contractsCreated: ["c0"],
+      tasksExecuted: [],
+      reputationChanges: [
+        { agentId: "did:awp:agent-01", dimension: "reliability", oldScore: 0.5, newScore: 0.6, delta: 0.1 },
+      ],
+      metrics: {
+        tasksAttempted: 2,
+        tasksSucceeded: 1,
+        tasksFailed: 1,
+        successRate: 0.5,
+        totalTokens: 500,
+        totalDurationMs: 5000,
+        avgTaskDurationMs: 2500,
+        antiPatternsDetected: [],
+      },
+    },
+    {
+      cycleNumber: 1,
+      startedAt: "2026-01-30T10:10:00Z",
+      endedAt: "2026-01-30T10:15:00Z",
+      contractsCreated: ["c1"],
+      tasksExecuted: [],
+      reputationChanges: [
+        { agentId: "did:awp:agent-01", dimension: "reliability", oldScore: 0.6, newScore: 0.7, delta: 0.1 },
+        { agentId: "did:awp:agent-02", dimension: "reliability", oldScore: 0.5, newScore: 0.55, delta: 0.05 },
+      ],
+      metrics: {
+        tasksAttempted: 2,
+        tasksSucceeded: 2,
+        tasksFailed: 0,
+        successRate: 1.0,
+        totalTokens: 800,
+        totalDurationMs: 4000,
+        avgTaskDurationMs: 2000,
+        antiPatternsDetected: [],
+      },
+    },
+  ],
+  finalReputations: {
+    "did:awp:agent-01": {
+      agentDid: "did:awp:agent-01",
+      agentName: "Agent 1",
+      dimensions: { reliability: 0.7, "epistemic-hygiene": 0.5, coordination: 0.5 },
+      overallScore: 0.57,
+    },
+    "did:awp:agent-02": {
+      agentDid: "did:awp:agent-02",
+      agentName: "Agent 2",
+      dimensions: { reliability: 0.55, "epistemic-hygiene": 0.5, coordination: 0.5 },
+      overallScore: 0.52,
+    },
+  },
+  aggregateMetrics: {
+    totalTasks: 4,
+    totalSuccesses: 3,
+    totalFailures: 1,
+    overallSuccessRate: 0.75,
+    totalTokens: 1300,
+    totalDurationMs: 9000,
+    avgCycleDurationMs: 4500,
+  },
+  successCriteriaResults: [
+    { criterionId: "trust-stability", met: true, actualValue: 0.9, threshold: 0.6 },
+    { criterionId: "artifact-quality", met: false, actualValue: 0.4, threshold: 0.7 },
+  ],
+};
+
+describe("listSocieties", () => {
+  beforeEach(() => {
+    process.env.AWP_SOCIETIES = SOCIETIES_ROOT;
+  });
+
+  it("returns society summaries from society.json files", async () => {
+    mockReaddir.mockImplementation(async (dir) => {
+      const d = String(dir);
+      if (d === SOCIETIES_ROOT) {
+        return [
+          { name: "society-alpha", isDirectory: () => true },
+          { name: "README.md", isDirectory: () => false },
+        ] as never;
+      }
+      if (d.endsWith("/metrics")) return ["exp-123.json"] as never;
+      return [] as never;
+    });
+
+    mockReadFile.mockImplementation(async (path) => {
+      if (String(path).endsWith("society.json")) {
+        return JSON.stringify(sampleSocietyConfig);
+      }
+      return "";
+    });
+
+    const result = await listSocieties();
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      id: "society-alpha",
+      manifestoId: "manifesto:test-v1",
+      status: "active",
+      agentCount: 2,
+      currentCycle: 3,
+      experimentCount: 1,
+    });
+  });
+
+  it("filters by status", async () => {
+    mockReaddir.mockImplementation(async (dir) => {
+      const d = String(dir);
+      if (d === SOCIETIES_ROOT) {
+        return [{ name: "society-alpha", isDirectory: () => true }] as never;
+      }
+      if (d.endsWith("/metrics")) return [] as never;
+      return [] as never;
+    });
+
+    mockReadFile.mockImplementation(async () => JSON.stringify(sampleSocietyConfig));
+
+    const result = await listSocieties("archived");
+    expect(result).toHaveLength(0);
+  });
+
+  it("returns empty array when societies dir does not exist", async () => {
+    mockReaddir.mockRejectedValue(new Error("ENOENT"));
+    const result = await listSocieties();
+    expect(result).toHaveLength(0);
+  });
+
+  it("skips directories without valid society.json", async () => {
+    mockReaddir.mockImplementation(async (dir) => {
+      const d = String(dir);
+      if (d === SOCIETIES_ROOT) {
+        return [{ name: "bad-dir", isDirectory: () => true }] as never;
+      }
+      return [] as never;
+    });
+    mockReadFile.mockRejectedValue(new Error("ENOENT"));
+
+    const result = await listSocieties();
+    expect(result).toHaveLength(0);
+  });
+});
+
+describe("readSocietyDetail", () => {
+  beforeEach(() => {
+    process.env.AWP_SOCIETIES = SOCIETIES_ROOT;
+  });
+
+  it("returns full detail with agents and experiments", async () => {
+    mockReadFile.mockImplementation(async (path) => {
+      const p = String(path);
+      if (p.endsWith("society.json")) return JSON.stringify(sampleSocietyConfig);
+      if (p.includes("agent-01/IDENTITY.md")) return "---\nname: Agent 1\n---";
+      if (p.includes("agent-02/IDENTITY.md")) return "---\nname: Agent 2\n---";
+      if (p.endsWith(".json") && p.includes("metrics")) return JSON.stringify(sampleExperimentResult);
+      return "";
+    });
+
+    mockMatter.mockImplementation((raw) => {
+      const content = String(raw);
+      if (content.includes("Agent 1")) {
+        return { data: { name: "Agent 1", did: "did:awp:agent-01" }, content: "", orig: "", language: "", matter: "", stringify: () => "" } as never;
+      }
+      if (content.includes("Agent 2")) {
+        return { data: { name: "Agent 2", did: "did:awp:agent-02" }, content: "", orig: "", language: "", matter: "", stringify: () => "" } as never;
+      }
+      return { data: {}, content: "", orig: "", language: "", matter: "", stringify: () => "" } as never;
+    });
+
+    mockReaddir.mockImplementation(async (dir) => {
+      if (String(dir).endsWith("/metrics")) return ["exp-society-alpha-123.json"] as never;
+      return [] as never;
+    });
+
+    const result = await readSocietyDetail("society-alpha");
+    expect(result).not.toBeNull();
+    expect(result!.agents).toHaveLength(2);
+    expect(result!.agents[0].name).toBe("Agent 1");
+    expect(result!.experiments).toHaveLength(1);
+    expect(result!.experiments[0].overallSuccessRate).toBe(0.75);
+  });
+
+  it("returns null when society does not exist", async () => {
+    mockReadFile.mockRejectedValue(new Error("ENOENT"));
+    const result = await readSocietyDetail("nonexistent");
+    expect(result).toBeNull();
+  });
+
+  it("handles missing metrics directory gracefully", async () => {
+    mockReadFile.mockImplementation(async (path) => {
+      const p = String(path);
+      if (p.endsWith("society.json")) {
+        return JSON.stringify({ ...sampleSocietyConfig, agents: [] });
+      }
+      throw new Error("ENOENT");
+    });
+
+    mockReaddir.mockRejectedValue(new Error("ENOENT"));
+
+    const result = await readSocietyDetail("society-alpha");
+    expect(result).not.toBeNull();
+    expect(result!.experiments).toHaveLength(0);
+  });
+});
+
+describe("readExperiment", () => {
+  beforeEach(() => {
+    process.env.AWP_SOCIETIES = SOCIETIES_ROOT;
+  });
+
+  it("returns parsed experiment result", async () => {
+    mockReadFile.mockResolvedValue(JSON.stringify(sampleExperimentResult));
+
+    const result = await readExperiment("society-alpha", "exp-society-alpha-123");
+    expect(result).not.toBeNull();
+    expect(result!.experimentId).toBe("exp-society-alpha-123");
+    expect(result!.totalCycles).toBe(2);
+    expect(result!.aggregateMetrics.overallSuccessRate).toBe(0.75);
+  });
+
+  it("returns null when experiment does not exist", async () => {
+    mockReadFile.mockRejectedValue(new Error("ENOENT"));
+    const result = await readExperiment("society-alpha", "nonexistent");
+    expect(result).toBeNull();
+  });
+});
+
+describe("computeCycleDataPoints", () => {
+  it("maps cycles to flat data points", () => {
+    const result = computeCycleDataPoints(sampleExperimentResult as never);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({
+      cycle: 0,
+      successRate: 0.5,
+      totalTokens: 500,
+      tasksAttempted: 2,
+      tasksSucceeded: 1,
+      tasksFailed: 1,
+    });
+    expect(result[1]).toMatchObject({
+      cycle: 1,
+      successRate: 1.0,
+      totalTokens: 800,
+    });
+  });
+
+  it("handles empty cycles", () => {
+    const empty = { ...sampleExperimentResult, cycles: [] };
+    const result = computeCycleDataPoints(empty as never);
+    expect(result).toHaveLength(0);
+  });
+});
+
+describe("computeReputationTimeline", () => {
+  it("produces correct timeline with initial and per-cycle points", () => {
+    const result = computeReputationTimeline(sampleExperimentResult as never);
+    expect(result.agents).toHaveLength(2);
+    expect(result.agents[0].name).toBe("Agent 1");
+    expect(result.agents[1].name).toBe("Agent 2");
+
+    // 2 cycles + 1 initial = 3 points
+    expect(result.points).toHaveLength(3);
+
+    // Initial: both agents at 50
+    expect(result.points[0]["did:awp:agent-01"]).toBe(50);
+    expect(result.points[0]["did:awp:agent-02"]).toBe(50);
+
+    // After cycle 0: agent-01 +0.1*100=10 → 60, agent-02 unchanged → 50
+    expect(result.points[1]["did:awp:agent-01"]).toBe(60);
+    expect(result.points[1]["did:awp:agent-02"]).toBe(50);
+
+    // After cycle 1: agent-01 +0.1*100=10 → 70, agent-02 +0.05*100=5 → 55
+    expect(result.points[2]["did:awp:agent-01"]).toBe(70);
+    expect(result.points[2]["did:awp:agent-02"]).toBe(55);
+  });
+
+  it("handles experiment with single cycle", () => {
+    const singleCycle = {
+      ...sampleExperimentResult,
+      cycles: [sampleExperimentResult.cycles[0]],
+    };
+    const result = computeReputationTimeline(singleCycle as never);
+    expect(result.points).toHaveLength(2); // initial + 1 cycle
+  });
+
+  it("carries forward scores for agents with no changes in a cycle", () => {
+    // In cycle 0, only agent-01 has changes; agent-02 should stay at 50
+    const result = computeReputationTimeline(sampleExperimentResult as never);
+    expect(result.points[1]["did:awp:agent-02"]).toBe(50);
   });
 });
