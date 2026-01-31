@@ -440,6 +440,8 @@ This specification follows Semantic Versioning. Breaking changes increment the m
 | `knowledge-artifact` | artifacts/*.md | Knowledge artifacts (SMP) |
 | `reputation-profile` | reputation/*.md | Agent reputation profiles (RDP) |
 | `delegation-contract` | contracts/*.md | Delegation contracts (RDP) |
+| `project` | projects/*.md | Coordination projects (CDP) |
+| `task` | projects/*/tasks/*.md | Project tasks (CDP) |
 
 ## Appendix B: Reserved Directories
 
@@ -449,6 +451,6 @@ This specification follows Semantic Versioning. Breaking changes increment the m
 | `memory/` | Daily memory logs |
 | `reputation/` | Agent reputation profiles |
 | `contracts/` | Delegation contracts |
-| `artifacts/` | Knowledge artifacts (Phase 2: SMP) |
-| `contracts/` | Delegation contracts (Phase 3: RDP) |
+| `artifacts/` | Knowledge artifacts (SMP) |
+| `projects/` | Coordination projects and tasks (CDP) |
 | `canvas/` | UI canvases and dashboards |

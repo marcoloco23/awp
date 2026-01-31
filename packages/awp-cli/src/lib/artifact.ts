@@ -1,4 +1,4 @@
-import { readdir, access } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { ARTIFACTS_DIR } from "@agent-workspace/core";
 import type { ArtifactFrontmatter } from "@agent-workspace/core";
@@ -66,9 +66,7 @@ export async function listArtifacts(
 
   for (const f of mdFiles) {
     try {
-      const parsed = await parseWorkspaceFile<ArtifactFrontmatter>(
-        join(artifactsDir, f)
-      );
+      const parsed = await parseWorkspaceFile<ArtifactFrontmatter>(join(artifactsDir, f));
       if (parsed.frontmatter.type === "knowledge-artifact") {
         artifacts.push(parsed);
       }

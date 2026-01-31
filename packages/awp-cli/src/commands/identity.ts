@@ -1,7 +1,8 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { generateKeyPairSync, createPublicKey } from "node:crypto";
-import { AWP_VERSION, MANIFEST_PATH, type AgentCard } from "@agent-workspace/core";
+import { generateKeyPairSync } from "node:crypto";
+import bs58 from "bs58";
+import { MANIFEST_PATH, type AgentCard } from "@agent-workspace/core";
 import { findWorkspaceRoot, loadManifest } from "../lib/workspace.js";
 import { parseWorkspaceFile, writeWorkspaceFile } from "../lib/frontmatter.js";
 import type { IdentityFrontmatter, SoulFrontmatter } from "@agent-workspace/core";
@@ -22,8 +23,8 @@ function generateDidKey(): { did: string; publicKeyMultibase: string; privateKey
   const multicodecPrefix = Buffer.from([0xed, 0x01]);
   const fullKey = Buffer.concat([multicodecPrefix, rawPubKey]);
 
-  // Simple base58btc encoding (using base64url as a practical substitute)
-  const encoded = fullKey.toString("base64url");
+  // Proper base58btc encoding per did:key specification
+  const encoded = bs58.encode(fullKey);
   const did = `did:key:z${encoded}`;
   const publicKeyMultibase = `z${encoded}`;
 
@@ -52,11 +53,7 @@ export async function identityGenerateCommand(): Promise<void> {
 
   // Update manifest
   manifest.agent.did = did;
-  await writeFile(
-    join(root, MANIFEST_PATH),
-    JSON.stringify(manifest, null, 2) + "\n",
-    "utf-8"
-  );
+  await writeFile(join(root, MANIFEST_PATH), JSON.stringify(manifest, null, 2) + "\n", "utf-8");
   console.log(`  Updated ${MANIFEST_PATH}`);
 
   // Update IDENTITY.md frontmatter
@@ -83,9 +80,7 @@ export async function identityGenerateCommand(): Promise<void> {
   console.log("IMPORTANT: Add .awp/private-key.pem to .gitignore!");
 }
 
-export async function identityExportCommand(
-  options: { format?: string }
-): Promise<void> {
+export async function identityExportCommand(options: { format?: string }): Promise<void> {
   const root = await findWorkspaceRoot();
   if (!root) {
     console.error("Error: Not in an AWP workspace.");

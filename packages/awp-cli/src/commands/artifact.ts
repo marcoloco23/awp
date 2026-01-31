@@ -1,10 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import {
-  AWP_VERSION,
-  SMP_VERSION,
-  ARTIFACTS_DIR,
-} from "@agent-workspace/core";
+import { AWP_VERSION, SMP_VERSION, ARTIFACTS_DIR } from "@agent-workspace/core";
 import type { ArtifactFrontmatter, ProvenanceEntry } from "@agent-workspace/core";
 import { findWorkspaceRoot } from "../lib/workspace.js";
 import { writeWorkspaceFile } from "../lib/frontmatter.js";
@@ -17,6 +13,7 @@ import {
   listArtifacts,
   getAgentDid,
 } from "../lib/artifact.js";
+import { listProfiles, computeDecayedScore } from "../lib/reputation.js";
 
 // --- awp artifact create ---
 
@@ -31,9 +28,7 @@ export async function artifactCreateCommand(
   }
 
   if (!validateSlug(slug)) {
-    console.error(
-      `Error: Invalid slug "${slug}". Must match [a-z0-9][a-z0-9-]*`
-    );
+    console.error(`Error: Invalid slug "${slug}". Must match [a-z0-9][a-z0-9-]*`);
     process.exit(1);
   }
 
@@ -57,9 +52,7 @@ export async function artifactCreateCommand(
       .split("-")
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(" ");
-  const tags = options.tags
-    ? options.tags.split(",").map((t) => t.trim())
-    : undefined;
+  const tags = options.tags ? options.tags.split(",").map((t) => t.trim()) : undefined;
 
   const frontmatter: ArtifactFrontmatter = {
     awp: AWP_VERSION,
@@ -163,8 +156,7 @@ export async function artifactLogCommand(slug: string): Promise<void> {
   }
 
   const fm = artifact.frontmatter;
-  const confStr =
-    fm.confidence !== undefined ? `, confidence: ${fm.confidence}` : "";
+  const confStr = fm.confidence !== undefined ? `, confidence: ${fm.confidence}` : "";
   console.log(`${fm.title} (version ${fm.version}${confStr})`);
   console.log("");
 
@@ -174,17 +166,13 @@ export async function artifactLogCommand(slug: string): Promise<void> {
     const e = entries[i];
     const version = fm.provenance.length - i;
     const msg = e.message ? `  "${e.message}"` : "";
-    console.log(
-      `  v${version}  ${e.timestamp}  ${e.agent}  ${e.action}${msg}`
-    );
+    console.log(`  v${version}  ${e.timestamp}  ${e.agent}  ${e.action}${msg}`);
   }
 }
 
 // --- awp artifact list ---
 
-export async function artifactListCommand(options: {
-  tag?: string;
-}): Promise<void> {
+export async function artifactListCommand(options: { tag?: string }): Promise<void> {
   const root = await findWorkspaceRoot();
   if (!root) {
     console.error("Error: Not in an AWP workspace.");
@@ -195,9 +183,7 @@ export async function artifactListCommand(options: {
 
   if (options.tag) {
     const tag = options.tag.toLowerCase();
-    artifacts = artifacts.filter((a) =>
-      a.frontmatter.tags?.some((t) => t.toLowerCase() === tag)
-    );
+    artifacts = artifacts.filter((a) => a.frontmatter.tags?.some((t) => t.toLowerCase() === tag));
   }
 
   if (artifacts.length === 0) {
@@ -215,12 +201,8 @@ export async function artifactListCommand(options: {
   for (const a of artifacts) {
     const fm = a.frontmatter;
     const slug = slugFromId(fm.id);
-    const title =
-      fm.title.length > titleW - 2
-        ? fm.title.slice(0, titleW - 4) + ".."
-        : fm.title;
-    const conf =
-      fm.confidence !== undefined ? fm.confidence.toFixed(2) : "-";
+    const title = fm.title.length > titleW - 2 ? fm.title.slice(0, titleW - 4) + ".." : fm.title;
+    const conf = fm.confidence !== undefined ? fm.confidence.toFixed(2) : "-";
     const tags = fm.tags?.join(", ") || "";
     console.log(
       `${slug.padEnd(slugW)}${title.padEnd(titleW)}${String(fm.version).padEnd(4)}${conf.padEnd(6)}${tags}`
@@ -244,15 +226,12 @@ export async function artifactSearchCommand(query: string): Promise<void> {
   for (const a of artifacts) {
     const fm = a.frontmatter;
     const titleMatch = fm.title.toLowerCase().includes(queryLower);
-    const tagMatch = fm.tags?.some((t) =>
-      t.toLowerCase().includes(queryLower)
-    );
+    const tagMatch = fm.tags?.some((t) => t.toLowerCase().includes(queryLower));
     const bodyMatch = a.body.toLowerCase().includes(queryLower);
 
     if (titleMatch || tagMatch || bodyMatch) {
       const slug = slugFromId(fm.id);
-      const confStr =
-        fm.confidence !== undefined ? ` (confidence: ${fm.confidence})` : "";
+      const confStr = fm.confidence !== undefined ? ` (confidence: ${fm.confidence})` : "";
       console.log(`\n${slug}: ${fm.title} [v${fm.version}]${confStr}`);
 
       if (bodyMatch && !titleMatch) {
@@ -277,14 +256,59 @@ export async function artifactSearchCommand(query: string): Promise<void> {
 
 // --- awp artifact merge ---
 
+/**
+ * Look up the domain reputation score for an agent DID.
+ * Scans all reputation profiles to find one matching the DID,
+ * then returns the highest decayed domainCompetence score for
+ * any of the given tags.
+ */
+async function getAuthorityScore(
+  root: string,
+  authorDid: string,
+  sharedTags: string[],
+  now: Date
+): Promise<{ score: number; slug: string | null }> {
+  const profiles = await listProfiles(root);
+
+  // Find a profile matching this DID
+  const profile = profiles.find((p) => p.frontmatter.agentDid === authorDid);
+  if (!profile) return { score: 0, slug: null };
+
+  const fm = profile.frontmatter;
+  const slug = fm.id.replace("reputation:", "");
+  let bestScore = 0;
+
+  // Check domainCompetence for any shared tag
+  for (const tag of sharedTags) {
+    const dim = fm.domainCompetence?.[tag];
+    if (dim) {
+      const decayed = computeDecayedScore(dim, now);
+      if (decayed > bestScore) bestScore = decayed;
+    }
+  }
+
+  // If no domain match, fall back to general reliability
+  if (bestScore === 0 && fm.dimensions?.reliability) {
+    bestScore = computeDecayedScore(fm.dimensions.reliability, now);
+  }
+
+  return { score: bestScore, slug };
+}
+
 export async function artifactMergeCommand(
   targetSlug: string,
   sourceSlug: string,
-  options: { message?: string }
+  options: { message?: string; strategy?: string }
 ): Promise<void> {
   const root = await findWorkspaceRoot();
   if (!root) {
     console.error("Error: Not in an AWP workspace.");
+    process.exit(1);
+  }
+
+  const strategy = options.strategy || "additive";
+  if (strategy !== "additive" && strategy !== "authority") {
+    console.error(`Error: Unknown merge strategy "${strategy}". Use "additive" or "authority".`);
     process.exit(1);
   }
 
@@ -306,13 +330,49 @@ export async function artifactMergeCommand(
   }
 
   const did = await getAgentDid(root);
-  const now = new Date().toISOString();
+  const now = new Date();
+  const nowIso = now.toISOString();
   const tfm = target.frontmatter;
   const sfm = source.frontmatter;
 
-  // Append source body with attribution
-  const separator = `\n---\n*Merged from ${sfm.id} (version ${sfm.version}) on ${now}*\n\n`;
-  target.body += separator + source.body.trim() + "\n";
+  if (strategy === "authority") {
+    // Authority merge: use reputation to determine ordering
+    const sharedTags = (tfm.tags ?? []).filter((t) => (sfm.tags ?? []).includes(t));
+
+    if (sharedTags.length === 0) {
+      console.log("Warning: No shared tags between artifacts. Using reliability dimension as fallback.");
+    }
+
+    const targetAuthor = tfm.authors[0] || "anonymous";
+    const sourceAuthor = sfm.authors[0] || "anonymous";
+
+    const targetAuth = await getAuthorityScore(root, targetAuthor, sharedTags, now);
+    const sourceAuth = await getAuthorityScore(root, sourceAuthor, sharedTags, now);
+
+    // Determine who is higher-authority
+    const targetIsHigher = targetAuth.score >= sourceAuth.score;
+    const higherBody = targetIsHigher ? target.body.trim() : source.body.trim();
+    const lowerBody = targetIsHigher ? source.body.trim() : target.body.trim();
+    const lowerAuthor = targetIsHigher ? sourceAuthor : targetAuthor;
+    const lowerScore = targetIsHigher ? sourceAuth.score : targetAuth.score;
+    const higherScore = targetIsHigher ? targetAuth.score : sourceAuth.score;
+
+    target.body =
+      higherBody +
+      `\n\n---\n*Authority merge: content below from ${lowerAuthor}` +
+      ` (authority score: ${lowerScore.toFixed(2)} vs ${higherScore.toFixed(2)})*\n\n` +
+      lowerBody +
+      "\n";
+
+    console.log(
+      `Authority merge: ${targetIsHigher ? "target" : "source"} has higher authority` +
+        ` (${higherScore.toFixed(2)} vs ${lowerScore.toFixed(2)})`
+    );
+  } else {
+    // Additive merge (original behavior)
+    const separator = `\n---\n*Merged from ${sfm.id} (version ${sfm.version}) on ${nowIso}*\n\n`;
+    target.body += separator + source.body.trim() + "\n";
+  }
 
   // Union authors
   for (const author of sfm.authors) {
@@ -343,21 +403,21 @@ export async function artifactMergeCommand(
 
   // Bump version and provenance
   tfm.version += 1;
-  tfm.lastModified = now;
+  tfm.lastModified = nowIso;
   tfm.modifiedBy = did;
 
   const msg =
-    options.message || `Merged from ${sfm.id} (version ${sfm.version})`;
+    options.message || `Merged from ${sfm.id} (version ${sfm.version}, strategy: ${strategy})`;
   tfm.provenance.push({
     agent: did,
     action: "merged",
-    timestamp: now,
+    timestamp: nowIso,
     message: msg,
     confidence: tfm.confidence,
   });
 
   await writeWorkspaceFile(target);
   console.log(
-    `Merged ${sfm.id} into ${tfm.id} (now version ${tfm.version})`
+    `Merged ${sfm.id} into ${tfm.id} (now version ${tfm.version}, strategy: ${strategy})`
   );
 }

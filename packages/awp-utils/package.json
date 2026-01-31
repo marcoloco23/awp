@@ -1,7 +1,7 @@
 {
-  "name": "@agent-workspace/core",
+  "name": "@agent-workspace/utils",
   "version": "0.4.0",
-  "description": "Core types, constants, and schemas for the Agent Workspace Protocol",
+  "description": "Shared utilities for AWP packages — validation, reputation calculations, and frontmatter parsing",
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
@@ -10,17 +10,15 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    },
-    "./schemas/*": "./schemas/*"
+    }
   },
   "files": [
-    "dist",
-    "schemas"
+    "dist"
   ],
   "repository": {
     "type": "git",
     "url": "https://github.com/marcoloco23/awp.git",
-    "directory": "packages/awp-core"
+    "directory": "packages/awp-utils"
   },
   "homepage": "https://github.com/marcoloco23/awp#readme",
   "keywords": [
@@ -28,19 +26,12 @@
     "agent",
     "workspace",
     "protocol",
-    "ai",
-    "llm",
-    "mcp",
-    "a2a",
-    "agent-economy",
-    "coordination"
+    "utilities"
   ],
   "engines": {
     "node": ">=18"
   },
   "scripts": {
-    "copy-schemas": "cp -r ../../spec/schemas/* ./schemas/",
-    "prebuild": "npm run copy-schemas",
     "build": "tsc",
     "dev": "tsc --watch",
     "lint": "eslint src/",
@@ -49,7 +40,12 @@
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
+  "dependencies": {
+    "@agent-workspace/core": "0.4.0",
+    "gray-matter": "^4.0.3"
+  },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "typescript": "^5.7.0"
   }
 }

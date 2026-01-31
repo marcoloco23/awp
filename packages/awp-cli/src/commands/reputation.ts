@@ -1,17 +1,9 @@
-import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { join, basename } from "node:path";
-import {
-  AWP_VERSION,
-  RDP_VERSION,
-  REPUTATION_DIR,
-} from "@agent-workspace/core";
-import type {
-  ReputationProfileFrontmatter,
-  ReputationSignal,
-  ReputationDimension,
-} from "@agent-workspace/core";
+import { writeFile, mkdir } from "node:fs/promises";
+import { join } from "node:path";
+import { AWP_VERSION, RDP_VERSION, REPUTATION_DIR } from "@agent-workspace/core";
+import type { ReputationProfileFrontmatter, ReputationSignal } from "@agent-workspace/core";
 import { findWorkspaceRoot } from "../lib/workspace.js";
-import { parseWorkspaceFile, serializeWorkspaceFile } from "../lib/frontmatter.js";
+import { serializeWorkspaceFile } from "../lib/frontmatter.js";
 import {
   validateSlug,
   slugToProfilePath,
@@ -19,7 +11,6 @@ import {
   listProfiles,
   computeDecayedScore,
   updateDimension,
-  computeConfidence,
 } from "../lib/reputation.js";
 import { getAgentDid } from "../lib/artifact.js";
 
@@ -147,9 +138,7 @@ export async function reputationSignalCommand(
   }
 
   if (!validateSlug(slug)) {
-    console.error(
-      `Invalid slug: ${slug} (must be lowercase alphanumeric + hyphens)`
-    );
+    console.error(`Invalid slug: ${slug} (must be lowercase alphanumeric + hyphens)`);
     process.exit(1);
   }
 
@@ -180,9 +169,7 @@ export async function reputationSignalCommand(
   } catch {
     // Profile doesn't exist — create it
     if (!options.agentDid || !options.agentName) {
-      console.error(
-        "First signal for this agent — --agent-did and --agent-name are required."
-      );
+      console.error("First signal for this agent — --agent-did and --agent-name are required.");
       process.exit(1);
     }
 
@@ -201,17 +188,9 @@ export async function reputationSignalCommand(
 
     // Set initial dimension
     if (options.dimension === "domain-competence" && options.domain) {
-      fm.domainCompetence![options.domain] = updateDimension(
-        undefined,
-        scoreNum,
-        now
-      );
+      fm.domainCompetence![options.domain] = updateDimension(undefined, scoreNum, now);
     } else {
-      fm.dimensions![options.dimension] = updateDimension(
-        undefined,
-        scoreNum,
-        now
-      );
+      fm.dimensions![options.dimension] = updateDimension(undefined, scoreNum, now);
     }
 
     const body = `# ${options.agentName} — Reputation Profile\n\nTracked since ${timestamp.split("T")[0]}.`;
@@ -224,9 +203,7 @@ export async function reputationSignalCommand(
       filePath,
     });
     await writeFile(filePath, content, "utf-8");
-    console.log(
-      `Created reputation/${slug}.md — ${options.dimension}: ${scoreNum}`
-    );
+    console.log(`Created reputation/${slug}.md — ${options.dimension}: ${scoreNum}`);
     return;
   }
 
@@ -283,8 +260,8 @@ export async function reputationListCommand(): Promise<void> {
   for (const p of profiles) {
     const fm = p.frontmatter;
     const slug = fm.id.replace("reputation:", "");
-    const dims = Object.keys(fm.dimensions || {}).length +
-      Object.keys(fm.domainCompetence || {}).length;
+    const dims =
+      Object.keys(fm.dimensions || {}).length + Object.keys(fm.domainCompetence || {}).length;
 
     // Find highest score
     let topScore = "—";

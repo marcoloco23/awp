@@ -116,6 +116,16 @@ export async function inspectCommand(): Promise<void> {
     // contracts/ doesn't exist yet
   }
 
+  // Count projects
+  try {
+    const projDir = join(root, "projects");
+    const files = await readdir(projDir);
+    const projFiles = files.filter((f) => f.endsWith(".md"));
+    console.log(`  projects/: ${projFiles.length} project(s)`);
+  } catch {
+    // projects/ doesn't exist yet
+  }
+
   // Show capabilities and protocols
   if (info.manifest.capabilities?.length) {
     console.log("");

@@ -166,6 +166,9 @@ export async function initCommand(
   await mkdir(join(root, "contracts"), { recursive: true });
   console.log("  Created contracts/");
 
+  await mkdir(join(root, "projects"), { recursive: true });
+  console.log("  Created projects/");
+
   console.log("");
   console.log(`AWP workspace initialized (${manifest.awp}).`);
   console.log(`Workspace ID: ${manifest.id}`);

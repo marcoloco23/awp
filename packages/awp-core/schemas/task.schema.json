@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://awp.dev/schemas/task.schema.json",
+  "title": "AWP Task",
+  "description": "Schema for AWP task frontmatter (CDP v1.0)",
+  "type": "object",
+  "required": ["awp", "cdp", "type", "id", "projectId", "title", "status", "priority", "created", "blockedBy", "blocks"],
+  "properties": {
+    "awp": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "AWP specification version"
+    },
+    "cdp": {
+      "type": "string",
+      "description": "CDP specification version"
+    },
+    "type": {
+      "type": "string",
+      "const": "task"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^task:[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9-]*$",
+      "description": "Unique identifier (task:<project-slug>/<task-slug>)"
+    },
+    "projectId": {
+      "type": "string",
+      "pattern": "^project:[a-z0-9][a-z0-9-]*$",
+      "description": "Parent project ID"
+    },
+    "title": {
+      "type": "string",
+      "description": "Human-readable task title"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "in-progress", "blocked", "review", "completed", "cancelled"],
+      "description": "Task lifecycle state"
+    },
+    "assignee": {
+      "type": "string",
+      "description": "DID of the assigned agent"
+    },
+    "assigneeSlug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "Reputation profile slug of the assignee"
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"],
+      "description": "Task priority level"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Task creation timestamp"
+    },
+    "deadline": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Optional deadline"
+    },
+    "blockedBy": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Task IDs this task depends on"
+    },
+    "blocks": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Task IDs that depend on this task"
+    },
+    "outputArtifact": {
+      "type": "string",
+      "description": "Expected output artifact slug"
+    },
+    "contractSlug": {
+      "type": "string",
+      "description": "Linked delegation contract slug"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Classification tags"
+    }
+  },
+  "additionalProperties": true
+}

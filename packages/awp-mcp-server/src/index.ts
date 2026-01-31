@@ -3,10 +3,82 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import * as z from "zod";
-import { readFile, writeFile, readdir, mkdir, access } from "node:fs/promises";
-import { join } from "node:path";
+import { readFile, writeFile, readdir, mkdir, access, stat } from "node:fs/promises";
+import { join, resolve, relative, isAbsolute } from "node:path";
 import matter from "gray-matter";
-import { AWP_VERSION, SMP_VERSION, RDP_VERSION, MEMORY_DIR, ARTIFACTS_DIR, REPUTATION_DIR, CONTRACTS_DIR } from "@agent-workspace/core";
+import {
+  AWP_VERSION,
+  SMP_VERSION,
+  RDP_VERSION,
+  CDP_VERSION,
+  MEMORY_DIR,
+  ARTIFACTS_DIR,
+  REPUTATION_DIR,
+  CONTRACTS_DIR,
+  PROJECTS_DIR,
+} from "@agent-workspace/core";
+
+// =============================================================================
+// Security Constants
+// =============================================================================
+
+/** Maximum file size allowed (1MB) */
+const MAX_FILE_SIZE = 1024 * 1024;
+
+/** Pattern for valid slugs */
+const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
+
+// =============================================================================
+// Security Utilities
+// =============================================================================
+
+/**
+ * Validate that a path is within the workspace root (prevents directory traversal).
+ * Returns the normalized absolute path if valid, or throws an error.
+ * @internal Available for future use in tool handlers
+ */
+export function _validatePath(root: string, targetPath: string): string {
+  const normalized = resolve(root, targetPath);
+  const rel = relative(root, normalized);
+
+  // Prevent directory traversal
+  if (rel.startsWith("..") || isAbsolute(rel)) {
+    throw new Error(`Path traversal detected: ${targetPath}`);
+  }
+
+  return normalized;
+}
+
+/**
+ * Validate and sanitize a slug.
+ * Slugs must be lowercase alphanumeric with hyphens, not starting with hyphen.
+ * @internal Available for future use in tool handlers
+ */
+export function _validateSlug(slug: string): string {
+  const trimmed = slug.trim().toLowerCase();
+  if (!SLUG_PATTERN.test(trimmed)) {
+    throw new Error(
+      `Invalid slug: "${slug}". Must be lowercase alphanumeric with hyphens, not starting with hyphen.`
+    );
+  }
+  // Additional safety: limit length
+  if (trimmed.length > 100) {
+    throw new Error(`Slug too long: max 100 characters`);
+  }
+  return trimmed;
+}
+
+/**
+ * Read a file with size limit check.
+ * @internal Available for future use in tool handlers
+ */
+export async function _safeReadFile(path: string): Promise<string> {
+  const stats = await stat(path);
+  if (stats.size > MAX_FILE_SIZE) {
+    throw new Error(`File too large: ${stats.size} bytes (max: ${MAX_FILE_SIZE})`);
+  }
+  return readFile(path, "utf-8");
+}
 
 const server = new McpServer({
   name: "awp-workspace",
@@ -147,9 +219,7 @@ server.registerTool(
     inputSchema: {
       target: z
         .string()
-        .describe(
-          "Which memory to read: a date like '2026-01-30', 'longterm', or 'recent'"
-        ),
+        .describe("Which memory to read: a date like '2026-01-30', 'longterm', or 'recent'"),
     },
   },
   async ({ target }) => {
@@ -164,19 +234,13 @@ server.registerTool(
           content: [
             {
               type: "text" as const,
-              text: JSON.stringify(
-                { frontmatter: data, body: content.trim() },
-                null,
-                2
-              ),
+              text: JSON.stringify({ frontmatter: data, body: content.trim() }, null, 2),
             },
           ],
         };
       } catch {
         return {
-          content: [
-            { type: "text" as const, text: "No long-term memory file exists yet." },
-          ],
+          content: [{ type: "text" as const, text: "No long-term memory file exists yet." }],
         };
       }
     }
@@ -195,18 +259,14 @@ server.registerTool(
         for (const f of mdFiles) {
           const raw = await readFile(join(memDir, f), "utf-8");
           const { data, content } = matter(raw);
-          results.push(
-            `--- ${f} ---\n${JSON.stringify(data, null, 2)}\n${content.trim()}`
-          );
+          results.push(`--- ${f} ---\n${JSON.stringify(data, null, 2)}\n${content.trim()}`);
         }
 
         return {
           content: [
             {
               type: "text" as const,
-              text: results.length
-                ? results.join("\n\n")
-                : "No recent memory entries.",
+              text: results.length ? results.join("\n\n") : "No recent memory entries.",
             },
           ],
         };
@@ -226,19 +286,13 @@ server.registerTool(
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify(
-              { frontmatter: data, body: content.trim() },
-              null,
-              2
-            ),
+            text: JSON.stringify({ frontmatter: data, body: content.trim() }, null, 2),
           },
         ],
       };
     } catch {
       return {
-        content: [
-          { type: "text" as const, text: `No memory entry for ${target}.` },
-        ],
+        content: [{ type: "text" as const, text: `No memory entry for ${target}.` }],
       };
     }
   }
@@ -252,10 +306,7 @@ server.registerTool(
     description: "Append an entry to today's memory log in the AWP workspace",
     inputSchema: {
       content: z.string().describe("The memory entry to log"),
-      tags: z
-        .array(z.string())
-        .optional()
-        .describe("Optional categorization tags"),
+      tags: z.array(z.string()).optional().describe("Optional categorization tags"),
     },
   },
   async ({ content: entryContent, tags }) => {
@@ -330,19 +381,13 @@ server.registerTool(
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify(
-              { frontmatter: data, body: content.trim() },
-              null,
-              2
-            ),
+            text: JSON.stringify({ frontmatter: data, body: content.trim() }, null, 2),
           },
         ],
       };
     } catch {
       return {
-        content: [
-          { type: "text" as const, text: `Artifact "${slug}" not found.` },
-        ],
+        content: [{ type: "text" as const, text: `Artifact "${slug}" not found.` }],
         isError: true,
       };
     }
@@ -361,12 +406,7 @@ server.registerTool(
       title: z.string().optional().describe("Title (required for new artifacts)"),
       content: z.string().describe("Markdown body content"),
       tags: z.array(z.string()).optional().describe("Categorization tags"),
-      confidence: z
-        .number()
-        .min(0)
-        .max(1)
-        .optional()
-        .describe("Confidence score (0.0-1.0)"),
+      confidence: z.number().min(0).max(1).optional().describe("Confidence score (0.0-1.0)"),
       message: z.string().optional().describe("Commit message for provenance"),
     },
   },
@@ -470,8 +510,7 @@ server.registerTool(
   "awp_artifact_list",
   {
     title: "List Knowledge Artifacts",
-    description:
-      "List all knowledge artifacts in the workspace with metadata",
+    description: "List all knowledge artifacts in the workspace with metadata",
     inputSchema: {
       tag: z.string().optional().describe("Filter by tag"),
     },
@@ -485,9 +524,7 @@ server.registerTool(
       files = await readdir(artifactsDir);
     } catch {
       return {
-        content: [
-          { type: "text" as const, text: JSON.stringify({ artifacts: [] }, null, 2) },
-        ],
+        content: [{ type: "text" as const, text: JSON.stringify({ artifacts: [] }, null, 2) }],
       };
     }
 
@@ -549,9 +586,7 @@ server.registerTool(
       files = await readdir(artifactsDir);
     } catch {
       return {
-        content: [
-          { type: "text" as const, text: JSON.stringify({ results: [] }, null, 2) },
-        ],
+        content: [{ type: "text" as const, text: JSON.stringify({ results: [] }, null, 2) }],
       };
     }
 
@@ -565,9 +600,7 @@ server.registerTool(
         if (data.type !== "knowledge-artifact") continue;
 
         const titleMatch = data.title?.toLowerCase().includes(queryLower);
-        const tagMatch = data.tags?.some((t: string) =>
-          t.toLowerCase().includes(queryLower)
-        );
+        const tagMatch = data.tags?.some((t: string) => t.toLowerCase().includes(queryLower));
         const bodyMatch = content.toLowerCase().includes(queryLower);
 
         if (titleMatch || tagMatch || bodyMatch) {
@@ -577,11 +610,9 @@ server.registerTool(
             version: data.version,
             confidence: data.confidence,
             tags: data.tags,
-            matchedIn: [
-              titleMatch && "title",
-              tagMatch && "tags",
-              bodyMatch && "body",
-            ].filter(Boolean),
+            matchedIn: [titleMatch && "title", tagMatch && "tags", bodyMatch && "body"].filter(
+              Boolean
+            ),
           });
         }
       } catch {
@@ -606,7 +637,7 @@ server.registerTool(
   {
     title: "Workspace Status",
     description:
-      "Get AWP workspace health status — manifest info, file presence, memory stats, artifact count",
+      "Get AWP workspace health status — manifest, files, projects, tasks, reputation, contracts, artifacts, memory, health warnings",
     inputSchema: {},
   },
   async () => {
@@ -615,10 +646,7 @@ server.registerTool(
 
     // Manifest
     try {
-      const manifestRaw = await readFile(
-        join(root, ".awp", "workspace.json"),
-        "utf-8"
-      );
+      const manifestRaw = await readFile(join(root, ".awp", "workspace.json"), "utf-8");
       status.manifest = JSON.parse(manifestRaw);
     } catch {
       status.manifest = null;
@@ -683,10 +711,132 @@ server.registerTool(
       status.contracts = { count: 0 };
     }
 
+    // Project + task stats
+    const projectsSummary: any[] = [];
+    let totalTasks = 0;
+    let activeTasks = 0;
+    try {
+      const projDir = join(root, PROJECTS_DIR);
+      const projFiles = await readdir(projDir);
+      const mdFiles = projFiles.filter((f) => f.endsWith(".md")).sort();
+
+      for (const f of mdFiles) {
+        try {
+          const raw = await readFile(join(projDir, f), "utf-8");
+          const { data } = matter(raw);
+          if (data.type !== "project") continue;
+          const slug = f.replace(/\.md$/, "");
+          const projInfo: any = {
+            slug,
+            title: data.title,
+            status: data.status,
+            taskCount: data.taskCount || 0,
+            completedCount: data.completedCount || 0,
+          };
+          if (data.deadline) projInfo.deadline = data.deadline;
+          projectsSummary.push(projInfo);
+          totalTasks += data.taskCount || 0;
+
+          // Count active tasks
+          try {
+            const taskDir = join(projDir, slug, "tasks");
+            const taskFiles = await readdir(taskDir);
+            for (const tf of taskFiles.filter((t: string) => t.endsWith(".md"))) {
+              try {
+                const tRaw = await readFile(join(taskDir, tf), "utf-8");
+                const { data: tData } = matter(tRaw);
+                if (
+                  tData.status === "in-progress" ||
+                  tData.status === "blocked" ||
+                  tData.status === "review"
+                ) {
+                  activeTasks++;
+                }
+              } catch {
+                /* skip */
+              }
+            }
+          } catch {
+            /* no tasks dir */
+          }
+        } catch {
+          /* skip */
+        }
+      }
+    } catch {
+      /* no projects dir */
+    }
+
+    status.projects = {
+      count: projectsSummary.length,
+      totalTasks,
+      activeTasks,
+      list: projectsSummary,
+    };
+
+    // Health warnings
+    const warnings: string[] = [];
+    const now = new Date();
+    const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+    // Check required files
+    if (!status.files["IDENTITY.md"]) warnings.push("IDENTITY.md missing");
+    if (!status.files["SOUL.md"]) warnings.push("SOUL.md missing");
+
+    // Check contract deadlines
+    try {
+      const conDir = join(root, CONTRACTS_DIR);
+      const conFiles = await readdir(conDir);
+      for (const f of conFiles.filter((f) => f.endsWith(".md"))) {
+        try {
+          const raw = await readFile(join(conDir, f), "utf-8");
+          const { data } = matter(raw);
+          if (data.deadline && (data.status === "active" || data.status === "draft")) {
+            if (new Date(data.deadline) < now) {
+              warnings.push(`Contract "${f.replace(/\.md$/, "")}" is past deadline`);
+            }
+          }
+        } catch {
+          /* skip */
+        }
+      }
+    } catch {
+      /* no contracts */
+    }
+
+    // Check reputation decay
+    try {
+      const repDir = join(root, REPUTATION_DIR);
+      const repFiles = await readdir(repDir);
+      for (const f of repFiles.filter((f) => f.endsWith(".md"))) {
+        try {
+          const raw = await readFile(join(repDir, f), "utf-8");
+          const { data } = matter(raw);
+          if (data.lastUpdated) {
+            const daysSince = Math.floor(
+              (now.getTime() - new Date(data.lastUpdated).getTime()) / MS_PER_DAY
+            );
+            if (daysSince > 30) {
+              warnings.push(
+                `${f.replace(/\.md$/, "")} reputation decaying (no signal in ${daysSince} days)`
+              );
+            }
+          }
+        } catch {
+          /* skip */
+        }
+      }
+    } catch {
+      /* no reputation */
+    }
+
+    status.health = {
+      warnings,
+      ok: warnings.length === 0,
+    };
+
     return {
-      content: [
-        { type: "text" as const, text: JSON.stringify(status, null, 2) },
-      ],
+      content: [{ type: "text" as const, text: JSON.stringify(status, null, 2) }],
     };
   }
 );
@@ -732,7 +882,9 @@ server.registerTool(
             dimensions: Object.keys(data.dimensions || {}),
             domains: Object.keys(data.domainCompetence || {}),
           });
-        } catch { /* skip */ }
+        } catch {
+          /* skip */
+        }
       }
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ profiles }, null, 2) }],
@@ -798,7 +950,9 @@ server.registerTool(
       "Log a reputation signal for an agent. Creates the profile if it doesn't exist (requires agentDid and agentName for new profiles).",
     inputSchema: {
       slug: z.string().describe("Agent reputation slug"),
-      dimension: z.string().describe("Dimension (reliability, epistemic-hygiene, coordination, domain-competence)"),
+      dimension: z
+        .string()
+        .describe("Dimension (reliability, epistemic-hygiene, coordination, domain-competence)"),
       score: z.number().min(0).max(1).describe("Score (0.0-1.0)"),
       domain: z.string().optional().describe("Domain (required for domain-competence)"),
       evidence: z.string().optional().describe("Evidence reference"),
@@ -807,7 +961,16 @@ server.registerTool(
       agentName: z.string().optional().describe("Agent name (required for new profiles)"),
     },
   },
-  async ({ slug, dimension: dim, score, domain, evidence, message, agentDid: newDid, agentName: newName }) => {
+  async ({
+    slug,
+    dimension: dim,
+    score,
+    domain,
+    evidence,
+    message,
+    agentDid: newDid,
+    agentName: newName,
+  }) => {
     const root = getWorkspaceRoot();
     const repDir = join(root, REPUTATION_DIR);
     await mkdir(repDir, { recursive: true });
@@ -856,7 +1019,12 @@ server.registerTool(
       // New profile
       if (!newDid || !newName) {
         return {
-          content: [{ type: "text" as const, text: "Error: agentDid and agentName required for new profiles." }],
+          content: [
+            {
+              type: "text" as const,
+              text: "Error: agentDid and agentName required for new profiles.",
+            },
+          ],
           isError: true,
         };
       }
@@ -885,7 +1053,10 @@ server.registerTool(
     if (!fileData.data.domainCompetence) fileData.data.domainCompetence = {};
 
     if (dim === "domain-competence" && domain) {
-      fileData.data.domainCompetence[domain] = updateDim(fileData.data.domainCompetence[domain], score);
+      fileData.data.domainCompetence[domain] = updateDim(
+        fileData.data.domainCompetence[domain],
+        score
+      );
     } else {
       fileData.data.dimensions[dim] = updateDim(fileData.data.dimensions[dim], score);
     }
@@ -894,10 +1065,12 @@ server.registerTool(
     await writeFile(filePath, output, "utf-8");
 
     return {
-      content: [{
-        type: "text" as const,
-        text: `${isNew ? "Created" : "Updated"} reputation/${slug}.md — ${dim}${domain ? `:${domain}` : ""}: ${score}`,
-      }],
+      content: [
+        {
+          type: "text" as const,
+          text: `${isNew ? "Created" : "Updated"} reputation/${slug}.md — ${dim}${domain ? `:${domain}` : ""}: ${score}`,
+        },
+      ],
     };
   }
 );
@@ -917,10 +1090,24 @@ server.registerTool(
       deadline: z.string().optional().describe("Deadline (ISO 8601)"),
       outputFormat: z.string().optional().describe("Expected output type"),
       outputSlug: z.string().optional().describe("Expected output artifact slug"),
-      criteria: z.record(z.string(), z.number()).optional().describe("Evaluation criteria weights (default: completeness:0.3, accuracy:0.4, clarity:0.2, timeliness:0.1)"),
+      criteria: z
+        .record(z.string(), z.number())
+        .optional()
+        .describe(
+          "Evaluation criteria weights (default: completeness:0.3, accuracy:0.4, clarity:0.2, timeliness:0.1)"
+        ),
     },
   },
-  async ({ slug, delegate, delegateSlug, description, deadline, outputFormat, outputSlug, criteria }) => {
+  async ({
+    slug,
+    delegate,
+    delegateSlug,
+    description,
+    deadline,
+    outputFormat,
+    outputSlug,
+    criteria,
+  }) => {
     const root = getWorkspaceRoot();
     const conDir = join(root, CONTRACTS_DIR);
     await mkdir(conDir, { recursive: true });
@@ -959,10 +1146,12 @@ server.registerTool(
     await writeFile(filePath, output, "utf-8");
 
     return {
-      content: [{
-        type: "text" as const,
-        text: `Created contracts/${slug}.md (status: active)`,
-      }],
+      content: [
+        {
+          type: "text" as const,
+          text: `Created contracts/${slug}.md (status: active)`,
+        },
+      ],
     };
   }
 );
@@ -976,7 +1165,9 @@ server.registerTool(
       "Evaluate a completed contract with scores for each criterion. Generates reputation signals for the delegate automatically.",
     inputSchema: {
       slug: z.string().describe("Contract slug"),
-      scores: z.record(z.string(), z.number().min(0).max(1)).describe("Map of criterion name to score (0.0-1.0)"),
+      scores: z
+        .record(z.string(), z.number().min(0).max(1))
+        .describe("Map of criterion name to score (0.0-1.0)"),
     },
   },
   async ({ slug, scores }) => {
@@ -1080,11 +1271,817 @@ server.registerTool(
 
     const resultText = [
       `Evaluated contracts/${slug}.md — weighted score: ${weightedScore}`,
-      repUpdated ? `Updated reputation/${delegateSlug}.md with reliability signal` : `Note: No reputation profile for ${delegateSlug} — signal not recorded`,
+      repUpdated
+        ? `Updated reputation/${delegateSlug}.md with reliability signal`
+        : `Note: No reputation profile for ${delegateSlug} — signal not recorded`,
     ].join("\n");
 
     return {
       content: [{ type: "text" as const, text: resultText }],
+    };
+  }
+);
+
+// --- Tool: awp_project_create ---
+server.registerTool(
+  "awp_project_create",
+  {
+    title: "Create Project",
+    description:
+      "Create a new coordination project with member roles and optional reputation gates.",
+    inputSchema: {
+      slug: z.string().describe("Project slug (e.g., 'q3-product-launch')"),
+      title: z.string().optional().describe("Project title"),
+      deadline: z.string().optional().describe("Deadline (ISO 8601 or YYYY-MM-DD)"),
+      tags: z.array(z.string()).optional().describe("Classification tags"),
+    },
+  },
+  async ({ slug, title, deadline, tags }) => {
+    const root = getWorkspaceRoot();
+    const projDir = join(root, PROJECTS_DIR);
+    await mkdir(projDir, { recursive: true });
+
+    const filePath = join(projDir, `${slug}.md`);
+    if (await fileExists(filePath)) {
+      return {
+        content: [{ type: "text" as const, text: `Project "${slug}" already exists.` }],
+        isError: true,
+      };
+    }
+
+    const did = await getAgentDid(root);
+    const now = new Date().toISOString();
+    const projectTitle =
+      title ||
+      slug
+        .split("-")
+        .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ");
+
+    const data: any = {
+      awp: AWP_VERSION,
+      cdp: CDP_VERSION,
+      type: "project",
+      id: `project:${slug}`,
+      title: projectTitle,
+      status: "active",
+      owner: did,
+      created: now,
+      members: [{ did, role: "lead", slug: "self" }],
+      taskCount: 0,
+      completedCount: 0,
+    };
+    if (deadline) data.deadline = deadline;
+    if (tags?.length) data.tags = tags;
+
+    const body = `\n# ${projectTitle}\n\n`;
+    const output = matter.stringify(body, data);
+    await writeFile(filePath, output, "utf-8");
+
+    return {
+      content: [{ type: "text" as const, text: `Created projects/${slug}.md (status: active)` }],
+    };
+  }
+);
+
+// --- Tool: awp_project_list ---
+server.registerTool(
+  "awp_project_list",
+  {
+    title: "List Projects",
+    description: "List all projects in the workspace with status and task progress.",
+    inputSchema: {
+      status: z
+        .string()
+        .optional()
+        .describe("Filter by status (draft, active, paused, completed, archived)"),
+    },
+  },
+  async ({ status: statusFilter }) => {
+    const root = getWorkspaceRoot();
+    const projDir = join(root, PROJECTS_DIR);
+
+    let files: string[];
+    try {
+      files = await readdir(projDir);
+    } catch {
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify({ projects: [] }, null, 2) }],
+      };
+    }
+
+    const projects: any[] = [];
+    for (const f of files.filter((f) => f.endsWith(".md")).sort()) {
+      try {
+        const raw = await readFile(join(projDir, f), "utf-8");
+        const { data } = matter(raw);
+        if (data.type !== "project") continue;
+        if (statusFilter && data.status !== statusFilter) continue;
+        projects.push({
+          slug: f.replace(/\.md$/, ""),
+          title: data.title,
+          status: data.status,
+          taskCount: data.taskCount || 0,
+          completedCount: data.completedCount || 0,
+          deadline: data.deadline,
+          owner: data.owner,
+          memberCount: data.members?.length || 0,
+        });
+      } catch {
+        /* skip */
+      }
+    }
+
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify({ projects }, null, 2) }],
+    };
+  }
+);
+
+// --- Tool: awp_project_status ---
+server.registerTool(
+  "awp_project_status",
+  {
+    title: "Project Status",
+    description: "Get detailed project status including members, tasks, and progress.",
+    inputSchema: {
+      slug: z.string().describe("Project slug"),
+    },
+  },
+  async ({ slug }) => {
+    const root = getWorkspaceRoot();
+    const filePath = join(root, PROJECTS_DIR, `${slug}.md`);
+
+    try {
+      const raw = await readFile(filePath, "utf-8");
+      const { data, content } = matter(raw);
+
+      // Load tasks
+      const tasks: any[] = [];
+      try {
+        const taskDir = join(root, PROJECTS_DIR, slug, "tasks");
+        const taskFiles = await readdir(taskDir);
+        for (const tf of taskFiles.filter((t: string) => t.endsWith(".md")).sort()) {
+          try {
+            const tRaw = await readFile(join(taskDir, tf), "utf-8");
+            const { data: tData } = matter(tRaw);
+            tasks.push({
+              slug: tf.replace(/\.md$/, ""),
+              title: tData.title,
+              status: tData.status,
+              assigneeSlug: tData.assigneeSlug,
+              priority: tData.priority,
+              deadline: tData.deadline,
+              blockedBy: tData.blockedBy || [],
+            });
+          } catch {
+            /* skip */
+          }
+        }
+      } catch {
+        /* no tasks */
+      }
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({ frontmatter: data, body: content.trim(), tasks }, null, 2),
+          },
+        ],
+      };
+    } catch {
+      return {
+        content: [{ type: "text" as const, text: `Project "${slug}" not found.` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+// --- Tool: awp_task_create ---
+server.registerTool(
+  "awp_task_create",
+  {
+    title: "Create Task",
+    description: "Create a new task within a project.",
+    inputSchema: {
+      projectSlug: z.string().describe("Project slug"),
+      taskSlug: z.string().describe("Task slug"),
+      title: z.string().optional().describe("Task title"),
+      assignee: z.string().optional().describe("Assignee agent DID"),
+      assigneeSlug: z.string().optional().describe("Assignee reputation profile slug"),
+      priority: z.string().optional().describe("Priority (low, medium, high, critical)"),
+      deadline: z.string().optional().describe("Deadline (ISO 8601 or YYYY-MM-DD)"),
+      blockedBy: z.array(z.string()).optional().describe("Task IDs that block this task"),
+      outputArtifact: z.string().optional().describe("Output artifact slug"),
+      contractSlug: z.string().optional().describe("Associated contract slug"),
+      tags: z.array(z.string()).optional().describe("Tags"),
+    },
+  },
+  async ({
+    projectSlug,
+    taskSlug,
+    title,
+    assignee,
+    assigneeSlug,
+    priority,
+    deadline,
+    blockedBy,
+    outputArtifact,
+    contractSlug,
+    tags,
+  }) => {
+    const root = getWorkspaceRoot();
+
+    // Check project exists
+    const projPath = join(root, PROJECTS_DIR, `${projectSlug}.md`);
+    let projData: { data: any; content: string };
+    try {
+      const raw = await readFile(projPath, "utf-8");
+      projData = matter(raw);
+    } catch {
+      return {
+        content: [{ type: "text" as const, text: `Project "${projectSlug}" not found.` }],
+        isError: true,
+      };
+    }
+
+    const taskDir = join(root, PROJECTS_DIR, projectSlug, "tasks");
+    await mkdir(taskDir, { recursive: true });
+
+    const taskPath = join(taskDir, `${taskSlug}.md`);
+    if (await fileExists(taskPath)) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Task "${taskSlug}" already exists in project "${projectSlug}".`,
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    const did = await getAgentDid(root);
+    const now = new Date().toISOString();
+    const taskTitle =
+      title ||
+      taskSlug
+        .split("-")
+        .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ");
+
+    const data: any = {
+      awp: AWP_VERSION,
+      cdp: CDP_VERSION,
+      type: "task",
+      id: `task:${projectSlug}/${taskSlug}`,
+      projectId: `project:${projectSlug}`,
+      title: taskTitle,
+      status: "pending",
+      priority: priority || "medium",
+      created: now,
+      blockedBy: blockedBy || [],
+      blocks: [],
+      lastModified: now,
+      modifiedBy: did,
+    };
+    if (assignee) data.assignee = assignee;
+    if (assigneeSlug) data.assigneeSlug = assigneeSlug;
+    if (deadline) data.deadline = deadline;
+    if (outputArtifact) data.outputArtifact = outputArtifact;
+    if (contractSlug) data.contractSlug = contractSlug;
+    if (tags?.length) data.tags = tags;
+
+    const body = `\n# ${taskTitle}\n\n`;
+    const output = matter.stringify(body, data);
+    await writeFile(taskPath, output, "utf-8");
+
+    // Update project counts
+    projData.data.taskCount = (projData.data.taskCount || 0) + 1;
+    const projOutput = matter.stringify(projData.content, projData.data);
+    await writeFile(projPath, projOutput, "utf-8");
+
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: `Created task "${taskSlug}" in project "${projectSlug}" (status: pending)`,
+        },
+      ],
+    };
+  }
+);
+
+// --- Tool: awp_task_update ---
+server.registerTool(
+  "awp_task_update",
+  {
+    title: "Update Task",
+    description: "Update a task's status, assignee, or other fields.",
+    inputSchema: {
+      projectSlug: z.string().describe("Project slug"),
+      taskSlug: z.string().describe("Task slug"),
+      status: z
+        .string()
+        .optional()
+        .describe("New status (pending, in-progress, blocked, review, completed, cancelled)"),
+      assignee: z.string().optional().describe("New assignee DID"),
+      assigneeSlug: z.string().optional().describe("New assignee reputation slug"),
+    },
+  },
+  async ({ projectSlug, taskSlug, status: newStatus, assignee, assigneeSlug }) => {
+    const root = getWorkspaceRoot();
+    const taskPath = join(root, PROJECTS_DIR, projectSlug, "tasks", `${taskSlug}.md`);
+
+    let taskData: { data: any; content: string };
+    try {
+      const raw = await readFile(taskPath, "utf-8");
+      taskData = matter(raw);
+    } catch {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Task "${taskSlug}" not found in project "${projectSlug}".`,
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    const did = await getAgentDid(root);
+    const now = new Date().toISOString();
+    const changes: string[] = [];
+
+    if (newStatus) {
+      taskData.data.status = newStatus;
+      changes.push(`status → ${newStatus}`);
+    }
+    if (assignee) {
+      taskData.data.assignee = assignee;
+      changes.push(`assignee → ${assignee}`);
+    }
+    if (assigneeSlug) {
+      taskData.data.assigneeSlug = assigneeSlug;
+      changes.push(`assigneeSlug → ${assigneeSlug}`);
+    }
+
+    taskData.data.lastModified = now;
+    taskData.data.modifiedBy = did;
+
+    const output = matter.stringify(taskData.content, taskData.data);
+    await writeFile(taskPath, output, "utf-8");
+
+    // Update project counts if status changed
+    if (newStatus) {
+      const projPath = join(root, PROJECTS_DIR, `${projectSlug}.md`);
+      try {
+        const projRaw = await readFile(projPath, "utf-8");
+        const projData = matter(projRaw);
+
+        // Recount completed tasks
+        const taskDir = join(root, PROJECTS_DIR, projectSlug, "tasks");
+        let taskCount = 0;
+        let completedCount = 0;
+        try {
+          const taskFiles = await readdir(taskDir);
+          for (const tf of taskFiles.filter((t: string) => t.endsWith(".md"))) {
+            try {
+              const tRaw = await readFile(join(taskDir, tf), "utf-8");
+              const { data: tData } = matter(tRaw);
+              if (tData.type === "task") {
+                taskCount++;
+                if (tData.status === "completed") completedCount++;
+              }
+            } catch {
+              /* skip */
+            }
+          }
+        } catch {
+          /* no tasks */
+        }
+
+        projData.data.taskCount = taskCount;
+        projData.data.completedCount = completedCount;
+        const projOutput = matter.stringify(projData.content, projData.data);
+        await writeFile(projPath, projOutput, "utf-8");
+      } catch {
+        /* project not found */
+      }
+    }
+
+    return {
+      content: [
+        { type: "text" as const, text: `Updated task "${taskSlug}": ${changes.join(", ")}` },
+      ],
+    };
+  }
+);
+
+// --- Tool: awp_task_list ---
+server.registerTool(
+  "awp_task_list",
+  {
+    title: "List Tasks",
+    description: "List all tasks for a project with optional status and assignee filters.",
+    inputSchema: {
+      projectSlug: z.string().describe("Project slug"),
+      status: z.string().optional().describe("Filter by status"),
+      assigneeSlug: z.string().optional().describe("Filter by assignee slug"),
+    },
+  },
+  async ({ projectSlug, status: statusFilter, assigneeSlug }) => {
+    const root = getWorkspaceRoot();
+    const taskDir = join(root, PROJECTS_DIR, projectSlug, "tasks");
+
+    let files: string[];
+    try {
+      files = await readdir(taskDir);
+    } catch {
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify({ tasks: [] }, null, 2) }],
+      };
+    }
+
+    const tasks: any[] = [];
+    for (const f of files.filter((f) => f.endsWith(".md")).sort()) {
+      try {
+        const raw = await readFile(join(taskDir, f), "utf-8");
+        const { data } = matter(raw);
+        if (data.type !== "task") continue;
+        if (statusFilter && data.status !== statusFilter) continue;
+        if (assigneeSlug && data.assigneeSlug !== assigneeSlug) continue;
+        tasks.push({
+          slug: f.replace(/\.md$/, ""),
+          title: data.title,
+          status: data.status,
+          assigneeSlug: data.assigneeSlug,
+          priority: data.priority,
+          deadline: data.deadline,
+          blockedBy: data.blockedBy || [],
+          blocks: data.blocks || [],
+        });
+      } catch {
+        /* skip */
+      }
+    }
+
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify({ tasks }, null, 2) }],
+    };
+  }
+);
+
+// --- Tool: awp_artifact_merge ---
+server.registerTool(
+  "awp_artifact_merge",
+  {
+    title: "Merge Artifacts",
+    description:
+      "Merge a source artifact into a target artifact. Supports 'additive' (append) and 'authority' (reputation-based ordering) strategies.",
+    inputSchema: {
+      targetSlug: z.string().describe("Target artifact slug"),
+      sourceSlug: z.string().describe("Source artifact slug"),
+      strategy: z
+        .string()
+        .optional()
+        .describe("Merge strategy: 'additive' (default) or 'authority'"),
+      message: z.string().optional().describe("Merge message"),
+    },
+  },
+  async ({ targetSlug, sourceSlug, strategy: strat, message }) => {
+    const root = getWorkspaceRoot();
+    const strategy = strat || "additive";
+
+    if (strategy !== "additive" && strategy !== "authority") {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Unknown strategy "${strategy}". Use "additive" or "authority".`,
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    let targetRaw: string, sourceRaw: string;
+    try {
+      targetRaw = await readFile(join(root, ARTIFACTS_DIR, `${targetSlug}.md`), "utf-8");
+    } catch {
+      return {
+        content: [{ type: "text" as const, text: `Target artifact "${targetSlug}" not found.` }],
+        isError: true,
+      };
+    }
+    try {
+      sourceRaw = await readFile(join(root, ARTIFACTS_DIR, `${sourceSlug}.md`), "utf-8");
+    } catch {
+      return {
+        content: [{ type: "text" as const, text: `Source artifact "${sourceSlug}" not found.` }],
+        isError: true,
+      };
+    }
+
+    const target = matter(targetRaw);
+    const source = matter(sourceRaw);
+    const did = await getAgentDid(root);
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const tfm = target.data;
+    const sfm = source.data;
+
+    if (strategy === "authority") {
+      // Authority merge using reputation
+      const sharedTags = (tfm.tags || []).filter((t: string) => (sfm.tags || []).includes(t));
+      const targetAuthor = tfm.authors?.[0] || "anonymous";
+      const sourceAuthor = sfm.authors?.[0] || "anonymous";
+
+      // Look up reputation scores
+      const getScore = async (authorDid: string): Promise<number> => {
+        const repDir = join(root, REPUTATION_DIR);
+        try {
+          const repFiles = await readdir(repDir);
+          for (const f of repFiles.filter((f) => f.endsWith(".md"))) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            let data: any;
+            try {
+              const raw = await readFile(join(repDir, f), "utf-8");
+              ({ data } = matter(raw));
+            } catch {
+              continue; // skip corrupted reputation files
+            }
+            if (data.agentDid !== authorDid) continue;
+            const MS_PER_MONTH = 30.44 * 24 * 60 * 60 * 1000;
+            let best = 0;
+            // Check domain scores for shared tags
+            for (const tag of sharedTags) {
+              const dim = data.domainCompetence?.[tag];
+              if (dim) {
+                const months = (now.getTime() - new Date(dim.lastSignal).getTime()) / MS_PER_MONTH;
+                const factor = months > 0 ? Math.exp(-0.02 * months) : 1;
+                const decayed = 0.5 + (dim.score - 0.5) * factor;
+                if (decayed > best) best = decayed;
+              }
+            }
+            // Fallback to reliability
+            if (best === 0 && data.dimensions?.reliability) {
+              const dim = data.dimensions.reliability;
+              const months = (now.getTime() - new Date(dim.lastSignal).getTime()) / MS_PER_MONTH;
+              const factor = months > 0 ? Math.exp(-0.02 * months) : 1;
+              best = 0.5 + (dim.score - 0.5) * factor;
+            }
+            return best;
+          }
+        } catch {
+          /* no reputation */
+        }
+        return 0;
+      };
+
+      const targetScore = await getScore(targetAuthor);
+      const sourceScore = await getScore(sourceAuthor);
+      const targetIsHigher = targetScore >= sourceScore;
+
+      const higherBody = targetIsHigher ? target.content.trim() : source.content.trim();
+      const lowerBody = targetIsHigher ? source.content.trim() : target.content.trim();
+      const lowerAuthor = targetIsHigher ? sourceAuthor : targetAuthor;
+      const lowerScore = targetIsHigher ? sourceScore : targetScore;
+      const higherScore = targetIsHigher ? targetScore : sourceScore;
+
+      target.content = `\n${higherBody}\n\n---\n*Authority merge: content below from ${lowerAuthor} (authority score: ${lowerScore.toFixed(2)} vs ${higherScore.toFixed(2)})*\n\n${lowerBody}\n`;
+    } else {
+      // Additive merge
+      const separator = `\n---\n*Merged from ${sfm.id} (version ${sfm.version}) on ${nowIso}*\n\n`;
+      target.content += separator + source.content.trim() + "\n";
+    }
+
+    // Union authors
+    for (const author of sfm.authors || []) {
+      if (!tfm.authors?.includes(author)) {
+        if (!tfm.authors) tfm.authors = [];
+        tfm.authors.push(author);
+      }
+    }
+    if (!tfm.authors?.includes(did)) {
+      if (!tfm.authors) tfm.authors = [];
+      tfm.authors.push(did);
+    }
+
+    // Union tags
+    if (sfm.tags) {
+      if (!tfm.tags) tfm.tags = [];
+      for (const tag of sfm.tags) {
+        if (!tfm.tags.includes(tag)) tfm.tags.push(tag);
+      }
+    }
+
+    // Confidence: minimum
+    if (tfm.confidence !== undefined && sfm.confidence !== undefined) {
+      tfm.confidence = Math.min(tfm.confidence, sfm.confidence);
+    } else if (sfm.confidence !== undefined) {
+      tfm.confidence = sfm.confidence;
+    }
+
+    // Bump version + provenance
+    tfm.version = (tfm.version || 1) + 1;
+    tfm.lastModified = nowIso;
+    tfm.modifiedBy = did;
+    if (!tfm.provenance) tfm.provenance = [];
+    tfm.provenance.push({
+      agent: did,
+      action: "merged",
+      timestamp: nowIso,
+      message: message || `Merged from ${sfm.id} (version ${sfm.version}, strategy: ${strategy})`,
+      confidence: tfm.confidence,
+    });
+
+    const output = matter.stringify(target.content, tfm);
+    await writeFile(join(root, ARTIFACTS_DIR, `${targetSlug}.md`), output, "utf-8");
+
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: `Merged ${sfm.id} into ${tfm.id} (now version ${tfm.version}, strategy: ${strategy})`,
+        },
+      ],
+    };
+  }
+);
+
+// --- Tool: awp_read_heartbeat ---
+server.registerTool(
+  "awp_read_heartbeat",
+  {
+    title: "Read Heartbeat Config",
+    description: "Read the agent's heartbeat configuration (HEARTBEAT.md)",
+    inputSchema: {},
+  },
+  async () => {
+    const root = getWorkspaceRoot();
+    const path = join(root, "HEARTBEAT.md");
+    try {
+      const raw = await readFile(path, "utf-8");
+      const { data, content } = matter(raw);
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({ frontmatter: data, body: content.trim() }, null, 2),
+          },
+        ],
+      };
+    } catch {
+      return {
+        content: [{ type: "text" as const, text: "HEARTBEAT.md not found" }],
+        isError: true,
+      };
+    }
+  }
+);
+
+// --- Tool: awp_read_tools ---
+server.registerTool(
+  "awp_read_tools",
+  {
+    title: "Read Tools Config",
+    description: "Read the agent's tools configuration (TOOLS.md)",
+    inputSchema: {},
+  },
+  async () => {
+    const root = getWorkspaceRoot();
+    const path = join(root, "TOOLS.md");
+    try {
+      const raw = await readFile(path, "utf-8");
+      const { data, content } = matter(raw);
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({ frontmatter: data, body: content.trim() }, null, 2),
+          },
+        ],
+      };
+    } catch {
+      return {
+        content: [{ type: "text" as const, text: "TOOLS.md not found" }],
+        isError: true,
+      };
+    }
+  }
+);
+
+// --- Tool: awp_read_agents ---
+server.registerTool(
+  "awp_read_agents",
+  {
+    title: "Read Operations/Agents Config",
+    description: "Read the agent's operations configuration (AGENTS.md)",
+    inputSchema: {},
+  },
+  async () => {
+    const root = getWorkspaceRoot();
+    const path = join(root, "AGENTS.md");
+    try {
+      const raw = await readFile(path, "utf-8");
+      const { data, content } = matter(raw);
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({ frontmatter: data, body: content.trim() }, null, 2),
+          },
+        ],
+      };
+    } catch {
+      return {
+        content: [{ type: "text" as const, text: "AGENTS.md not found" }],
+        isError: true,
+      };
+    }
+  }
+);
+
+// --- Tool: awp_contract_list ---
+server.registerTool(
+  "awp_contract_list",
+  {
+    title: "List Delegation Contracts",
+    description: "List all delegation contracts with optional status filter",
+    inputSchema: {
+      status: z
+        .string()
+        .optional()
+        .describe("Filter by status (active, completed, evaluated, cancelled)"),
+    },
+  },
+  async ({ status: statusFilter }) => {
+    const root = getWorkspaceRoot();
+    const contractsDir = join(root, CONTRACTS_DIR);
+
+    let files: string[];
+    try {
+      files = await readdir(contractsDir);
+    } catch {
+      return {
+        content: [{ type: "text" as const, text: "No contracts directory found." }],
+      };
+    }
+
+    const mdFiles = files.filter((f) => f.endsWith(".md")).sort();
+    const contracts: Array<{
+      slug: string;
+      status: string;
+      delegate: string;
+      delegateSlug: string;
+      created: string;
+      deadline?: string;
+    }> = [];
+
+    for (const f of mdFiles) {
+      try {
+        const raw = await readFile(join(contractsDir, f), "utf-8");
+        const { data } = matter(raw);
+        if (data.type === "delegation-contract") {
+          if (!statusFilter || data.status === statusFilter) {
+            contracts.push({
+              slug: f.replace(".md", ""),
+              status: data.status || "unknown",
+              delegate: data.delegate || "unknown",
+              delegateSlug: data.delegateSlug || "unknown",
+              created: data.created || "unknown",
+              deadline: data.deadline,
+            });
+          }
+        }
+      } catch {
+        // Skip unparseable files
+      }
+    }
+
+    if (contracts.length === 0) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: statusFilter
+              ? `No contracts with status: ${statusFilter}`
+              : "No contracts found.",
+          },
+        ],
+      };
+    }
+
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: JSON.stringify(contracts, null, 2),
+        },
+      ],
     };
   }
 );

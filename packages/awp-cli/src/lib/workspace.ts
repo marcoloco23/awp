@@ -1,4 +1,4 @@
-import { readFile, access, readdir, mkdir } from "node:fs/promises";
+import { readFile, access } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import {
   MANIFEST_PATH,
@@ -21,9 +21,7 @@ export interface WorkspaceInfo {
 /**
  * Find workspace root by walking up from cwd looking for .awp/workspace.json
  */
-export async function findWorkspaceRoot(
-  startDir?: string
-): Promise<string | null> {
+export async function findWorkspaceRoot(startDir?: string): Promise<string | null> {
   let dir = resolve(startDir || process.cwd());
   const root = resolve("/");
 
@@ -42,9 +40,7 @@ export async function findWorkspaceRoot(
 /**
  * Load workspace manifest
  */
-export async function loadManifest(
-  workspaceRoot: string
-): Promise<WorkspaceManifest> {
+export async function loadManifest(workspaceRoot: string): Promise<WorkspaceManifest> {
   const manifestPath = join(workspaceRoot, MANIFEST_PATH);
   const raw = await readFile(manifestPath, "utf-8");
   return JSON.parse(raw) as WorkspaceManifest;
@@ -65,9 +61,7 @@ async function fileExists(path: string): Promise<boolean> {
 /**
  * Gather full workspace info for inspection/validation
  */
-export async function inspectWorkspace(
-  workspaceRoot: string
-): Promise<WorkspaceInfo> {
+export async function inspectWorkspace(workspaceRoot: string): Promise<WorkspaceInfo> {
   const manifest = await loadManifest(workspaceRoot);
 
   const required = await Promise.all(
@@ -112,10 +106,7 @@ export function generateWorkspaceId(): string {
 /**
  * Create default workspace manifest
  */
-export function createDefaultManifest(
-  name: string,
-  agentName: string
-): WorkspaceManifest {
+export function createDefaultManifest(name: string, _agentName?: string): WorkspaceManifest {
   return {
     awp: AWP_VERSION,
     id: generateWorkspaceId(),

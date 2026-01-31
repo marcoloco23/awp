@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://awp.dev/schemas/project.schema.json",
+  "title": "AWP Project",
+  "description": "Schema for AWP project frontmatter (CDP v1.0)",
+  "type": "object",
+  "required": ["awp", "cdp", "type", "id", "title", "status", "owner", "created", "members", "taskCount", "completedCount"],
+  "properties": {
+    "awp": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "AWP specification version"
+    },
+    "cdp": {
+      "type": "string",
+      "description": "CDP specification version"
+    },
+    "type": {
+      "type": "string",
+      "const": "project"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^project:[a-z0-9][a-z0-9-]*$",
+      "description": "Unique identifier (project:<slug>)"
+    },
+    "title": {
+      "type": "string",
+      "description": "Human-readable project title"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "active", "paused", "completed", "archived"],
+      "description": "Project lifecycle state"
+    },
+    "owner": {
+      "type": "string",
+      "description": "DID of the project owner"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Project creation timestamp"
+    },
+    "deadline": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Optional deadline"
+    },
+    "members": {
+      "type": "array",
+      "description": "Project members with roles and optional reputation gates",
+      "items": {
+        "$ref": "#/$defs/projectMember"
+      },
+      "minItems": 1
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Classification tags"
+    },
+    "taskCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of tasks"
+    },
+    "completedCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of completed tasks"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "projectMember": {
+      "type": "object",
+      "required": ["did", "role", "slug"],
+      "properties": {
+        "did": {
+          "type": "string",
+          "description": "W3C DID of the member agent"
+        },
+        "role": {
+          "type": "string",
+          "description": "Role name (e.g., 'lead', 'researcher', 'writer')"
+        },
+        "slug": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "Reputation profile slug"
+        },
+        "minReputation": {
+          "type": "object",
+          "description": "Map of dimension/domain to minimum score threshold",
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

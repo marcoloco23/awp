@@ -1,26 +1,22 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { REPUTATION_DIR } from "@agent-workspace/core";
-import type {
-  ReputationProfileFrontmatter,
-  ReputationDimension,
+import {
+  REPUTATION_DIR,
+  REPUTATION_EWMA_ALPHA,
+  REPUTATION_DECAY_RATE,
+  REPUTATION_BASELINE,
+  MS_PER_MONTH,
 } from "@agent-workspace/core";
+import type { ReputationProfileFrontmatter, ReputationDimension } from "@agent-workspace/core";
 import { parseWorkspaceFile } from "./frontmatter.js";
 import type { WorkspaceFile } from "@agent-workspace/core";
 
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 
-/** Default EWMA learning rate */
-export const DEFAULT_ALPHA = 0.15;
-
-/** Default decay rate per month */
-export const DEFAULT_DECAY_RATE = 0.02;
-
-/** Score floor — unknown baseline */
-export const SCORE_FLOOR = 0.5;
-
-/** Milliseconds per month (average) */
-const MS_PER_MONTH = 30.44 * 24 * 60 * 60 * 1000;
+// Re-export constants for backwards compatibility
+export const DEFAULT_ALPHA = REPUTATION_EWMA_ALPHA;
+export const DEFAULT_DECAY_RATE = REPUTATION_DECAY_RATE;
+export const SCORE_FLOOR = REPUTATION_BASELINE;
 
 /**
  * Validate a reputation slug
@@ -32,10 +28,7 @@ export function validateSlug(slug: string): boolean {
 /**
  * Get the file path for a reputation profile slug
  */
-export function slugToProfilePath(
-  workspaceRoot: string,
-  slug: string
-): string {
+export function slugToProfilePath(workspaceRoot: string, slug: string): string {
   return join(workspaceRoot, REPUTATION_DIR, `${slug}.md`);
 }
 
@@ -69,10 +62,7 @@ export async function listProfiles(
 
   for (const f of mdFiles) {
     try {
-      const parsed =
-        await parseWorkspaceFile<ReputationProfileFrontmatter>(
-          join(repDir, f)
-        );
+      const parsed = await parseWorkspaceFile<ReputationProfileFrontmatter>(join(repDir, f));
       if (parsed.frontmatter.type === "reputation-profile") {
         profiles.push(parsed);
       }
@@ -94,8 +84,7 @@ export function computeDecayedScore(
   decayRate: number = DEFAULT_DECAY_RATE
 ): number {
   const lastSignalDate = new Date(dim.lastSignal);
-  const monthsElapsed =
-    (now.getTime() - lastSignalDate.getTime()) / MS_PER_MONTH;
+  const monthsElapsed = (now.getTime() - lastSignalDate.getTime()) / MS_PER_MONTH;
 
   if (monthsElapsed <= 0) return dim.score;
 

@@ -5,10 +5,7 @@ import { AWP_VERSION } from "@agent-workspace/core";
 import { initCommand } from "./commands/init.js";
 import { validateCommand } from "./commands/validate.js";
 import { inspectCommand } from "./commands/inspect.js";
-import {
-  identityGenerateCommand,
-  identityExportCommand,
-} from "./commands/identity.js";
+import { identityGenerateCommand, identityExportCommand } from "./commands/identity.js";
 import { memoryLogCommand, memorySearchCommand } from "./commands/memory.js";
 import {
   artifactCreateCommand,
@@ -29,13 +26,23 @@ import {
   contractShowCommand,
   contractEvaluateCommand,
 } from "./commands/contract.js";
+import {
+  projectCreateCommand,
+  projectListCommand,
+  projectShowCommand,
+  projectCloseCommand,
+} from "./commands/project.js";
+import {
+  taskCreateCommand,
+  taskListCommand,
+  taskUpdateCommand,
+  taskShowCommand,
+} from "./commands/task.js";
+import { statusCommand } from "./commands/status.js";
 
 const program = new Command();
 
-program
-  .name("awp")
-  .description("Agent Workspace Protocol — CLI tool")
-  .version(AWP_VERSION);
+program.name("awp").description("Agent Workspace Protocol — CLI tool").version(AWP_VERSION);
 
 // awp init [dir]
 program
@@ -49,18 +56,14 @@ program
 program
   .command("validate")
   .description("Validate the current AWP workspace")
+  .option("--quick", "Only validate core files (skip content directories)")
   .action(validateCommand);
 
 // awp inspect
-program
-  .command("inspect")
-  .description("Show workspace summary")
-  .action(inspectCommand);
+program.command("inspect").description("Show workspace summary").action(inspectCommand);
 
 // awp identity
-const identity = program
-  .command("identity")
-  .description("Agent identity operations");
+const identity = program.command("identity").description("Agent identity operations");
 
 identity
   .command("generate")
@@ -74,9 +77,7 @@ identity
   .action(identityExportCommand);
 
 // awp memory
-const memory = program
-  .command("memory")
-  .description("Memory operations");
+const memory = program.command("memory").description("Memory operations");
 
 memory
   .command("log")
@@ -87,14 +88,17 @@ memory
 
 memory
   .command("search")
-  .description("Search memory entries")
+  .description("Search memory entries with optional fuzzy matching and date filters")
   .argument("<query>", "Search query")
+  .option("--from <date>", "Start date (YYYY-MM-DD)")
+  .option("--to <date>", "End date (YYYY-MM-DD)")
+  .option("--tag <tag>", "Filter by tag")
+  .option("--fuzzy", "Enable fuzzy matching")
+  .option("--limit <n>", "Limit number of results")
   .action(memorySearchCommand);
 
 // awp artifact
-const artifact = program
-  .command("artifact")
-  .description("Knowledge artifact operations (SMP)");
+const artifact = program.command("artifact").description("Knowledge artifact operations (SMP)");
 
 artifact
   .command("create")
@@ -133,10 +137,11 @@ artifact
 
 artifact
   .command("merge")
-  .description("Merge source artifact into target (additive)")
+  .description("Merge source artifact into target")
   .argument("<target>", "Target artifact slug")
   .argument("<source>", "Source artifact slug")
   .option("-m, --message <message>", "Merge message")
+  .option("-s, --strategy <strategy>", "Merge strategy (additive, authority)", "additive")
   .action(artifactMergeCommand);
 
 // awp reputation
@@ -157,7 +162,10 @@ reputation
   .command("signal")
   .description("Log a reputation signal for an agent")
   .argument("<slug>", "Agent reputation slug")
-  .requiredOption("--dimension <dim>", "Dimension (reliability, epistemic-hygiene, coordination, domain-competence)")
+  .requiredOption(
+    "--dimension <dim>",
+    "Dimension (reliability, epistemic-hygiene, coordination, domain-competence)"
+  )
   .requiredOption("--score <n>", "Score (0.0-1.0)")
   .option("--domain <domain>", "Domain (required for domain-competence)")
   .option("--evidence <ref>", "Evidence reference (e.g., contract:slug, artifact:slug)")
@@ -166,15 +174,10 @@ reputation
   .option("--agent-name <name>", "Agent name (required for first signal)")
   .action(reputationSignalCommand);
 
-reputation
-  .command("list")
-  .description("List all tracked agents")
-  .action(reputationListCommand);
+reputation.command("list").description("List all tracked agents").action(reputationListCommand);
 
 // awp contract
-const contract = program
-  .command("contract")
-  .description("Delegation contract operations (RDP)");
+const contract = program.command("contract").description("Delegation contract operations (RDP)");
 
 contract
   .command("create")
@@ -210,5 +213,87 @@ contract
   .option("--clarity <n>", "Clarity score (0.0-1.0)")
   .option("--timeliness <n>", "Timeliness score (0.0-1.0)")
   .action(contractEvaluateCommand);
+
+// awp project
+const project = program.command("project").description("Project coordination operations (CDP)");
+
+project
+  .command("create")
+  .description("Create a new project")
+  .argument("<slug>", "Project slug (e.g., q3-product-launch)")
+  .option("-t, --title <title>", "Project title")
+  .option("--deadline <date>", "Deadline (ISO 8601 date or YYYY-MM-DD)")
+  .option("--tags <tags>", "Comma-separated tags")
+  .action(projectCreateCommand);
+
+project
+  .command("list")
+  .description("List all projects")
+  .option("--status <state>", "Filter by status (draft, active, paused, completed, archived)")
+  .action(projectListCommand);
+
+project
+  .command("show")
+  .description("Show project details with task summary")
+  .argument("<slug>", "Project slug")
+  .action(projectShowCommand);
+
+project
+  .command("close")
+  .description("Mark a project as completed")
+  .argument("<slug>", "Project slug")
+  .action(projectCloseCommand);
+
+// awp task
+const task = program.command("task").description("Task management operations (CDP)");
+
+task
+  .command("create")
+  .description("Create a task within a project")
+  .argument("<project>", "Project slug")
+  .argument("<slug>", "Task slug")
+  .option("-t, --title <title>", "Task title")
+  .option("--assignee <did>", "Assignee agent DID")
+  .option("--assignee-slug <slug>", "Assignee reputation profile slug")
+  .option("--priority <level>", "Priority (low, medium, high, critical)", "medium")
+  .option("--deadline <date>", "Deadline (ISO 8601 date or YYYY-MM-DD)")
+  .option("--blocked-by <ids>", "Comma-separated task IDs that block this task")
+  .option("--output-artifact <slug>", "Output artifact slug")
+  .option("--contract <slug>", "Associated contract slug")
+  .action(taskCreateCommand);
+
+task
+  .command("list")
+  .description("List tasks for a project")
+  .argument("<project>", "Project slug")
+  .option("--status <state>", "Filter by status")
+  .option("--assignee <slug>", "Filter by assignee slug")
+  .action(taskListCommand);
+
+task
+  .command("update")
+  .description("Update a task's status or assignee")
+  .argument("<project>", "Project slug")
+  .argument("<slug>", "Task slug")
+  .option(
+    "--status <state>",
+    "New status (pending, in-progress, blocked, review, completed, cancelled)"
+  )
+  .option("--assignee <did>", "New assignee DID")
+  .option("--assignee-slug <slug>", "New assignee reputation profile slug")
+  .action(taskUpdateCommand);
+
+task
+  .command("show")
+  .description("Show task details")
+  .argument("<project>", "Project slug")
+  .argument("<slug>", "Task slug")
+  .action(taskShowCommand);
+
+// awp status
+program
+  .command("status")
+  .description("Rich workspace overview — projects, tasks, reputation, health")
+  .action(statusCommand);
 
 program.parse();

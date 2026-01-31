@@ -1,18 +1,97 @@
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { REQUIRED_FILES, ALL_WORKSPACE_FILES } from "@agent-workspace/core";
 import {
-  findWorkspaceRoot,
-  loadManifest,
-} from "../lib/workspace.js";
+  REQUIRED_FILES,
+  ALL_WORKSPACE_FILES,
+  ARTIFACTS_DIR,
+  REPUTATION_DIR,
+  CONTRACTS_DIR,
+  PROJECTS_DIR,
+} from "@agent-workspace/core";
+import { findWorkspaceRoot, loadManifest } from "../lib/workspace.js";
 import { parseWorkspaceFile } from "../lib/frontmatter.js";
 import { validateFrontmatter, validateManifest } from "../lib/schema.js";
 
-export async function validateCommand(): Promise<void> {
+/**
+ * Scan a directory for .md files and validate each against its schema.
+ * Returns the number of errors found.
+ */
+async function validateDirectory(
+  root: string,
+  relativeDir: string,
+  _label: string
+): Promise<{ errors: number; checked: number }> {
+  const dir = join(root, relativeDir);
+  let files: string[];
+  try {
+    files = await readdir(dir);
+  } catch {
+    return { errors: 0, checked: 0 };
+  }
+
+  const mdFiles = files.filter((f) => f.endsWith(".md")).sort();
+  let errors = 0;
+  let checked = 0;
+
+  for (const f of mdFiles) {
+    const relPath = `${relativeDir}/${f}`;
+    try {
+      const parsed = await parseWorkspaceFile(join(dir, f));
+      const fm = parsed.frontmatter;
+
+      if (!fm.awp || !fm.type) {
+        console.log(`  [SKIP] ${relPath} — no AWP frontmatter`);
+        continue;
+      }
+
+      checked++;
+      const result = await validateFrontmatter(fm.type, fm as unknown as Record<string, unknown>);
+      if (result.valid) {
+        console.log(`  [PASS] ${relPath}`);
+      } else {
+        console.log(`  [FAIL] ${relPath}`);
+        result.errors.forEach((e) => console.log(`         ${e}`));
+        errors++;
+      }
+    } catch {
+      // Unparseable file — skip
+    }
+  }
+
+  return { errors, checked };
+}
+
+/**
+ * Scan nested task directories under projects/.
+ * Structure: projects/<slug>/tasks/<task>.md
+ */
+async function validateProjectTasks(root: string): Promise<{ errors: number; checked: number }> {
+  const projectsDir = join(root, PROJECTS_DIR);
+  let projectDirs: string[];
+  try {
+    const entries = await readdir(projectsDir, { withFileTypes: true });
+    projectDirs = entries.filter((e) => e.isDirectory()).map((e) => e.name);
+  } catch {
+    return { errors: 0, checked: 0 };
+  }
+
+  let totalErrors = 0;
+  let totalChecked = 0;
+
+  for (const pDir of projectDirs) {
+    const tasksRel = `${PROJECTS_DIR}/${pDir}/tasks`;
+    const result = await validateDirectory(root, tasksRel, "task");
+    totalErrors += result.errors;
+    totalChecked += result.checked;
+  }
+
+  return { errors: totalErrors, checked: totalChecked };
+}
+
+export async function validateCommand(options?: { quick?: boolean }): Promise<void> {
   const root = await findWorkspaceRoot();
   if (!root) {
-    console.error(
-      "Error: Not in an AWP workspace. Run 'awp init' to create one."
-    );
+    console.error("Error: Not in an AWP workspace. Run 'awp init' to create one.");
     process.exit(1);
   }
 
@@ -22,9 +101,7 @@ export async function validateCommand(): Promise<void> {
   // 1. Validate manifest
   try {
     const manifest = await loadManifest(root);
-    const result = await validateManifest(
-      manifest as unknown as Record<string, unknown>
-    );
+    const result = await validateManifest(manifest as unknown as Record<string, unknown>);
     if (result.valid) {
       console.log("  [PASS] .awp/workspace.json");
     } else {
@@ -55,10 +132,7 @@ export async function validateCommand(): Promise<void> {
         continue;
       }
 
-      const result = await validateFrontmatter(
-        fm.type,
-        fm as unknown as Record<string, unknown>
-      );
+      const result = await validateFrontmatter(fm.type, fm as unknown as Record<string, unknown>);
       if (result.valid) {
         console.log(`  [PASS] ${file}`);
       } else {
@@ -81,10 +155,7 @@ export async function validateCommand(): Promise<void> {
       const fm = parsed.frontmatter;
 
       if (fm.awp && fm.type) {
-        const result = await validateFrontmatter(
-          fm.type,
-          fm as unknown as Record<string, unknown>
-        );
+        const result = await validateFrontmatter(fm.type, fm as unknown as Record<string, unknown>);
         if (result.valid) {
           console.log(`  [PASS] ${file}`);
         } else {
@@ -96,6 +167,39 @@ export async function validateCommand(): Promise<void> {
       }
     } catch {
       // Optional file doesn't exist — fine
+    }
+  }
+
+  // 4. Scan content directories (unless --quick)
+  if (!options?.quick) {
+    // Artifacts
+    const artResult = await validateDirectory(root, ARTIFACTS_DIR, "artifact");
+    if (artResult.errors > 0) hasErrors = true;
+
+    // Reputation profiles
+    const repResult = await validateDirectory(root, REPUTATION_DIR, "reputation");
+    if (repResult.errors > 0) hasErrors = true;
+
+    // Contracts
+    const conResult = await validateDirectory(root, CONTRACTS_DIR, "contract");
+    if (conResult.errors > 0) hasErrors = true;
+
+    // Projects
+    const projResult = await validateDirectory(root, PROJECTS_DIR, "project");
+    if (projResult.errors > 0) hasErrors = true;
+
+    // Tasks (nested under project dirs)
+    const taskResult = await validateProjectTasks(root);
+    if (taskResult.errors > 0) hasErrors = true;
+
+    const totalScanned =
+      artResult.checked +
+      repResult.checked +
+      conResult.checked +
+      projResult.checked +
+      taskResult.checked;
+    if (totalScanned > 0) {
+      console.log(`\n  Scanned ${totalScanned} content file(s).`);
     }
   }
 

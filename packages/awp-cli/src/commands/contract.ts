@@ -1,15 +1,7 @@
 import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import {
-  AWP_VERSION,
-  RDP_VERSION,
-  CONTRACTS_DIR,
-  REPUTATION_DIR,
-} from "@agent-workspace/core";
-import type {
-  DelegationContractFrontmatter,
-  ReputationProfileFrontmatter,
-} from "@agent-workspace/core";
+import { AWP_VERSION, RDP_VERSION, CONTRACTS_DIR } from "@agent-workspace/core";
+import type { DelegationContractFrontmatter } from "@agent-workspace/core";
 import { findWorkspaceRoot } from "../lib/workspace.js";
 import { serializeWorkspaceFile } from "../lib/frontmatter.js";
 import {
@@ -20,11 +12,7 @@ import {
   evaluateContract,
 } from "../lib/contract.js";
 import { getAgentDid } from "../lib/artifact.js";
-import {
-  slugToProfilePath,
-  loadProfile,
-  updateDimension,
-} from "../lib/reputation.js";
+import { loadProfile, updateDimension } from "../lib/reputation.js";
 
 /**
  * awp contract create <slug>
@@ -48,9 +36,7 @@ export async function contractCreateCommand(
   }
 
   if (!validateSlug(slug)) {
-    console.error(
-      `Invalid slug: ${slug} (must be lowercase alphanumeric + hyphens)`
-    );
+    console.error(`Invalid slug: ${slug} (must be lowercase alphanumeric + hyphens)`);
     process.exit(1);
   }
 
@@ -104,9 +90,7 @@ export async function contractCreateCommand(
 /**
  * awp contract list
  */
-export async function contractListCommand(options: {
-  status?: string;
-}): Promise<void> {
+export async function contractListCommand(options: { status?: string }): Promise<void> {
   const root = await findWorkspaceRoot();
   if (!root) {
     console.error("Not in an AWP workspace.");
@@ -116,16 +100,12 @@ export async function contractListCommand(options: {
   let contracts = await listContracts(root);
 
   if (options.status) {
-    contracts = contracts.filter(
-      (c) => c.frontmatter.status === options.status
-    );
+    contracts = contracts.filter((c) => c.frontmatter.status === options.status);
   }
 
   if (contracts.length === 0) {
     console.log(
-      options.status
-        ? `No contracts with status: ${options.status}`
-        : "No contracts found."
+      options.status ? `No contracts with status: ${options.status}` : "No contracts found."
     );
     return;
   }
@@ -138,9 +118,7 @@ export async function contractListCommand(options: {
     const fm = c.frontmatter;
     const slug = fm.id.replace("contract:", "");
     const date = fm.created.split("T")[0];
-    console.log(
-      `${slug.padEnd(20)} ${fm.delegateSlug.padEnd(20)} ${fm.status.padEnd(11)} ${date}`
-    );
+    console.log(`${slug.padEnd(20)} ${fm.delegateSlug.padEnd(20)} ${fm.status.padEnd(11)} ${date}`);
   }
 }
 
@@ -259,9 +237,7 @@ export async function contractEvaluateCommand(
   for (const name of criteriaNames) {
     const val = optionMap[name];
     if (val === undefined) {
-      console.error(
-        `Missing score for criterion: ${name}. Use --${name} <0-1>`
-      );
+      console.error(`Missing score for criterion: ${name}. Use --${name} <0-1>`);
       process.exit(1);
     }
     const num = parseFloat(val);
@@ -274,12 +250,7 @@ export async function contractEvaluateCommand(
 
   const evaluatorDid = await getAgentDid(root);
   const now = new Date();
-  const { weightedScore, signals } = evaluateContract(
-    fm,
-    scores,
-    evaluatorDid,
-    now
-  );
+  const { weightedScore, signals } = evaluateContract(fm, scores, evaluatorDid, now);
 
   // Update contract
   fm.status = "evaluated";
@@ -310,9 +281,7 @@ export async function contractEvaluateCommand(
 
     const profileContent = serializeWorkspaceFile(profile);
     await writeFile(profile.filePath, profileContent, "utf-8");
-    console.log(
-      `Updated reputation/${delegateSlug}.md — reliability: ${weightedScore}`
-    );
+    console.log(`Updated reputation/${delegateSlug}.md — reliability: ${weightedScore}`);
   } catch {
     // No existing profile — warn but still complete
     console.log(

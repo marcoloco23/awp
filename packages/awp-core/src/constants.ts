@@ -4,13 +4,16 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /** Current AWP specification version */
-export const AWP_VERSION = "0.3.0";
+export const AWP_VERSION = "0.4.0";
 
 /** Current SMP protocol version */
 export const SMP_VERSION = "1.0";
 
 /** Current RDP protocol version */
 export const RDP_VERSION = "1.0";
+
+/** Current CDP protocol version */
+export const CDP_VERSION = "1.0";
 
 /** Required workspace files */
 export const REQUIRED_FILES = ["IDENTITY.md", "SOUL.md"] as const;
@@ -21,15 +24,11 @@ export const OPTIONAL_FILES = [
   "USER.md",
   "TOOLS.md",
   "HEARTBEAT.md",
-  "BOOTSTRAP.md",
   "MEMORY.md",
 ] as const;
 
 /** All known workspace files */
-export const ALL_WORKSPACE_FILES = [
-  ...REQUIRED_FILES,
-  ...OPTIONAL_FILES,
-] as const;
+export const ALL_WORKSPACE_FILES = [...REQUIRED_FILES, ...OPTIONAL_FILES] as const;
 
 /** Workspace manifest path */
 export const MANIFEST_PATH = ".awp/workspace.json";
@@ -46,6 +45,9 @@ export const REPUTATION_DIR = "reputation";
 /** Delegation contracts directory */
 export const CONTRACTS_DIR = "contracts";
 
+/** Projects directory */
+export const PROJECTS_DIR = "projects";
+
 /** File type to filename mapping */
 export const FILE_TYPE_MAP: Record<string, string> = {
   identity: "IDENTITY.md",
@@ -54,11 +56,12 @@ export const FILE_TYPE_MAP: Record<string, string> = {
   user: "USER.md",
   tools: "TOOLS.md",
   heartbeat: "HEARTBEAT.md",
-  bootstrap: "BOOTSTRAP.md",
   "memory-longterm": "MEMORY.md",
   "knowledge-artifact": "artifacts/",
   "reputation-profile": "reputation/",
   "delegation-contract": "contracts/",
+  project: "projects/",
+  task: "projects/",
 };
 
 /**
@@ -87,4 +90,22 @@ export const SCHEMA_MAP: Record<string, string> = {
   "knowledge-artifact": "knowledge-artifact.schema.json",
   "reputation-profile": "reputation-profile.schema.json",
   "delegation-contract": "delegation-contract.schema.json",
+  project: "project.schema.json",
+  task: "task.schema.json",
 };
+
+// ============================================================================
+// Reputation Constants (RDP)
+// ============================================================================
+
+/** EWMA learning rate for reputation updates */
+export const REPUTATION_EWMA_ALPHA = 0.15;
+
+/** Monthly decay rate for reputation scores */
+export const REPUTATION_DECAY_RATE = 0.02;
+
+/** Baseline score that scores decay toward (unknown state) */
+export const REPUTATION_BASELINE = 0.5;
+
+/** Milliseconds per average month (30.44 days) */
+export const MS_PER_MONTH = 30.44 * 24 * 60 * 60 * 1000;

@@ -1,23 +1,47 @@
 import { readFile } from "node:fs/promises";
 import { SCHEMA_MAP, getSchemaPath } from "@agent-workspace/core";
 
-// Dynamic import to handle CJS/ESM interop
-let ajvInstance: any = null;
+/** AJV error object shape */
+interface AjvError {
+  instancePath: string;
+  message?: string;
+}
+
+/** AJV validate function with errors property */
+interface ValidateFunction {
+  (data: unknown): boolean;
+  errors?: AjvError[] | null;
+}
+
+/** AJV instance interface */
+interface AjvInstance {
+  compile: (schema: object) => ValidateFunction;
+}
+
+let ajvInstance: AjvInstance | null = null;
 const schemaCache = new Map<string, object>();
 
-async function getAjv(): Promise<any> {
+async function getAjv(): Promise<AjvInstance> {
   if (!ajvInstance) {
     const AjvModule = await import("ajv");
     const AjvFormatsModule = await import("ajv-formats");
-    const Ajv = AjvModule.default?.default ?? AjvModule.default ?? AjvModule;
+
+    // Handle ESM/CJS interop
+    const AjvClass =
+      (AjvModule as { default?: { default?: unknown } }).default?.default ??
+      (AjvModule as { default?: unknown }).default ??
+      AjvModule;
     const addFormats =
-      AjvFormatsModule.default?.default ??
-      AjvFormatsModule.default ??
+      (AjvFormatsModule as { default?: { default?: unknown } }).default?.default ??
+      (AjvFormatsModule as { default?: unknown }).default ??
       AjvFormatsModule;
-    ajvInstance = new Ajv({ allErrors: true, strict: false });
-    addFormats(ajvInstance);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ajvInstance = new (AjvClass as any)({ allErrors: true, strict: false });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (addFormats as any)(ajvInstance);
   }
-  return ajvInstance;
+  return ajvInstance as AjvInstance;
 }
 
 /**
@@ -65,8 +89,8 @@ export async function validateFrontmatter(
       return { valid: true, errors: [] };
     }
 
-    const errors = (validate.errors || []).map(
-      (e: any) => `${e.instancePath || "/"}: ${e.message}`
+    const errors = (validate.errors ?? []).map(
+      (e: AjvError) => `${e.instancePath || "/"}: ${e.message}`
     );
     return { valid: false, errors };
   } catch (err) {
@@ -80,9 +104,7 @@ export async function validateFrontmatter(
 /**
  * Validate workspace manifest against its schema
  */
-export async function validateManifest(
-  data: Record<string, unknown>
-): Promise<ValidationResult> {
+export async function validateManifest(data: Record<string, unknown>): Promise<ValidationResult> {
   try {
     const schema = await loadSchema("workspace.schema.json");
     const ajv = await getAjv();
@@ -93,8 +115,8 @@ export async function validateManifest(
       return { valid: true, errors: [] };
     }
 
-    const errors = (validate.errors || []).map(
-      (e: any) => `${e.instancePath || "/"}: ${e.message}`
+    const errors = (validate.errors ?? []).map(
+      (e: AjvError) => `${e.instancePath || "/"}: ${e.message}`
     );
     return { valid: false, errors };
   } catch (err) {

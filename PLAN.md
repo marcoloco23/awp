@@ -17,8 +17,8 @@ Build the operating system for an agent economy, not another app inside it.
 │              Human Governance Layer                  │
 │         dashboards · veto · escalation · audit       │
 ├─────────────────────────────────────────────────────┤
-│           Coordination Layer (Phase 4)               │
-│      task boards · swarms · dependency graphs        │
+│           Coordination Layer (Phase 4) ✅             │
+│   projects · tasks · authority merge · status        │
 ├─────────────────────────────────────────────────────┤
 │      Reputation & Delegation Layer (Phase 3) ✅      │
 │   multi-dim reputation · contracts · disputes        │
@@ -73,6 +73,21 @@ AWP is complementary to all existing protocols, competitive with none. It sits b
 - EWMA score updates (α=0.15), time-based decay (0.02/month, floor 0.5), confidence from sample size
 - Contract evaluation automatically generates reputation signals for delegate
 
+## What's Built (Phase 4 Primitives — Complete)
+
+### Coordination Protocol (CDP)
+- `spec/cdp/cdp-spec.md` — Full CDP specification (projects, tasks, member roles, reputation gates, authority merge)
+- `spec/schemas/project.schema.json` — Project JSON Schema
+- `spec/schemas/task.schema.json` — Task JSON Schema
+- Core types: `ProjectFrontmatter`, `ProjectMember`, `TaskFrontmatter`
+- CLI: `awp project create|list|show|close` + `awp task create|list|update|show` + `awp status`
+- MCP: `awp_project_create`, `awp_project_list`, `awp_project_status`, `awp_task_create`, `awp_task_update`, `awp_task_list`, `awp_artifact_merge`
+- Enhanced `awp_workspace_status` with project/task data and health warnings
+- Authority merge strategy for artifacts (uses reputation to order conflicting content)
+- Expanded `awp validate` — scans all content directories (artifacts, reputation, contracts, projects, tasks)
+- Reputation-gated task assignments (advisory warnings, not blocking)
+- Task dependencies (blockedBy/blocks) with downstream warnings
+
 ---
 
 ## Phase 2: Shared Memory Protocol (SMP) — ✅ Complete (v0.2.0)
@@ -81,7 +96,6 @@ Versioned knowledge artifacts with provenance, confidence scores, and merge. See
 
 **Deferred to future:**
 - `packages/awp-sync/` — Workspace-to-workspace artifact sync (needs A2A transport)
-- Authority/consensus merge strategies (need multi-agent reputation — now available from Phase 3)
 
 ---
 
@@ -93,32 +107,45 @@ Multi-dimensional reputation profiles with EWMA scoring, time-based decay, deleg
 - Dispute resolution system (needs multi-agent adjudication)
 - Cross-org lossy reputation transfer (needs multi-workspace sync)
 - Consensus panels / third-party review (needs A2A transport)
-- Authority-based merge for conflicting reputation signals
 
 ---
 
-## Phase 4: Coordination Platform
+## Phase 4: Coordination Protocol — ✅ Primitives Complete (v0.4.0)
 
-**Problem:** At scale, agents duplicate work, coordination becomes overhead, and humans can't tell which systems matter. Posting is dead. What replaces it: task boards, dependency graphs, agent swarms with explicit roles.
+Projects, tasks, authority merge, rich status. See `spec/cdp/cdp-spec.md`.
+
+**Deferred to future:**
+- Dependency graph traversal / topological sort (cycle detection)
+- Swarm definitions with dynamic role recruitment
+- Shared lib extraction to awp-core (refactoring)
+- MCP server modularization into tool files
+
+---
+
+## Phase 5: Coordination Platform (Next)
+
+**Problem:** CDP v1.0 provides single-workspace coordination primitives but the platform needs dynamic multi-agent orchestration, visual governance, and cross-workspace communication.
 
 **What to build:**
 
-### Agent Swarm Primitives
+### Agent Swarm Definitions
+Dynamic multi-agent composition with role recruitment based on reputation:
 ```yaml
 type: "swarm"
 goal: "Complete Q3 product launch"
 governance:
   human_lead: "user:marc"
   veto_power: true
-  budget_limit: "$500"
 roles:
-  lead: { agent: "did:key:zJarvis", responsibilities: ["coordination", "review"] }
-  researcher: { agent: "did:key:zResearchBot", min_reputation: { ai-research: 0.8 } }
-  writer: { agent: "did:key:zWriter", min_reputation: { technical-writing: 0.7 } }
-task_board:
-  - { id: "task-1", title: "Competitive analysis", assigned_to: "researcher", status: "in_progress" }
-  - { id: "task-2", title: "Write positioning doc", assigned_to: "writer", depends_on: ["task-1"] }
+  researcher: { min_reputation: { ai-research: 0.8 } }
+  writer: { min_reputation: { technical-writing: 0.7 } }
 ```
+
+### Dependency Graph Engine
+- Topological sort for task ordering
+- Cycle detection and reporting
+- Automatic status propagation (blocked ← dependency)
+- Critical path analysis
 
 ### Human Governance Dashboard (Next.js)
 - Agent roster with reputation profiles
@@ -127,14 +154,11 @@ task_board:
 - Escalation queue for items requiring human decision
 - Full audit trail
 
-Humans are governors, not operators. The dashboard replaces chat as the interface.
-
 ### Components
-- `spec/coord/coord-spec.md` — Coordination Protocol specification
-- `packages/awp-coord/` — Projects, task boards, swarm composition, dependency graphs
 - `packages/awp-dashboard/` — Next.js governance dashboard
 - A2A integration for inter-agent task routing
 - AG-UI integration for real-time agent status streaming
+- `packages/awp-sync/` — Workspace-to-workspace sync
 
 ---
 
@@ -152,6 +176,7 @@ Humans are governors, not operators. The dashboard replaces chat as the interfac
 - Memory accumulates in AWP format (switching = losing history)
 - Reputation stored in AWP format (switching = losing trust)
 - Delegation contracts reference AWP artifacts (switching = losing provenance)
+- Project coordination embeds task history and reputation gates (switching = losing workflow context)
 - Open spec + Apache 2.0 = network effects > proprietary lock-in
 
 ---
@@ -171,17 +196,14 @@ awp/                           # Public repo: github.com/marcoloco23/awp
     schemas/                   # JSON Schemas ✅
     smp/smp-spec.md            # Phase 2: Shared Memory Protocol ✅
     rdp/rdp-spec.md            # Phase 3: Reputation & Delegation ✅
-    coord/coord-spec.md        # Phase 4: Coordination Protocol
+    cdp/cdp-spec.md            # Phase 4: Coordination Protocol ✅
 
   packages/
     awp-core/                  # Shared types, constants, schemas ✅
     awp-cli/                   # CLI tool ✅
     awp-mcp-server/            # MCP server ✅
-    awp-smp/                   # Phase 2: Shared Memory library
-    awp-rdp/                   # Phase 3: Reputation & Delegation library
-    awp-coord/                 # Phase 4: Coordination engine
-    awp-sync/                  # Phase 2: Workspace-to-workspace sync
-    awp-dashboard/             # Phase 4: Human governance dashboard
+    awp-sync/                  # Phase 5: Workspace-to-workspace sync
+    awp-dashboard/             # Phase 5: Human governance dashboard
 
   templates/
     clawd/                     # Reference workspace template ✅

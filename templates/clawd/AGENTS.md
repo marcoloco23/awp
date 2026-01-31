@@ -1,5 +1,5 @@
 ---
-awp: "0.1.0"
+awp: "0.4.0"
 type: "operations"
 sessionStartup:
   - "Read SOUL.md"

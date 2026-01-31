@@ -1,0 +1,14 @@
+{
+  "awp": "0.4.0",
+  "id": "urn:awp:workspace:replace-with-unique-id",
+  "name": "clawd-workspace",
+  "created": "2024-01-01T00:00:00.000Z",
+  "agent": {
+    "identityFile": "IDENTITY.md"
+  },
+  "capabilities": ["coding", "research", "memory", "coordination"],
+  "protocols": {
+    "a2a": true,
+    "mcp": true
+  }
+}
