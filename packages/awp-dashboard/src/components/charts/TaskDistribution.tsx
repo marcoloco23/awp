@@ -32,6 +32,7 @@ export function TaskDistribution({ tasks }: Props) {
   if (data.length === 0) return null;
 
   return (
+    <div role="img" aria-label={`Task distribution: ${data.map((d) => `${d.name} ${d.count}`).join(", ")}`}>
     <ResponsiveContainer width="100%" height={160}>
       <BarChart data={data} layout="vertical" margin={{ left: 0, right: 16, top: 4, bottom: 4 }}>
         <XAxis type="number" hide allowDecimals={false} />
@@ -55,5 +56,6 @@ export function TaskDistribution({ tasks }: Props) {
         </Bar>
       </BarChart>
     </ResponsiveContainer>
+    </div>
   );
 }

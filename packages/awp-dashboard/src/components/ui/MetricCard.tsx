@@ -17,6 +17,7 @@ export function MetricCard({ label, value, icon: Icon, detail, variant = "defaul
     <div
       className="card p-4 flex items-start gap-3.5 animate-fade-in"
       style={{ animationDelay: `${index * 60}ms` }}
+      aria-label={`${label}: ${value}${detail ? `, ${detail}` : ""}`}
     >
       <div
         className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0"

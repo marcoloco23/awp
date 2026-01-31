@@ -40,6 +40,7 @@ export function ScoreTimeline({ signals }: Props) {
   if (data.length < 2) return null;
 
   return (
+    <div role="img" aria-label="Reputation score timeline chart">
     <ResponsiveContainer width="100%" height={200}>
       <AreaChart data={data} margin={{ left: 0, right: 8, top: 8, bottom: 4 }}>
         <defs>
@@ -82,5 +83,6 @@ export function ScoreTimeline({ signals }: Props) {
         />
       </AreaChart>
     </ResponsiveContainer>
+    </div>
   );
 }

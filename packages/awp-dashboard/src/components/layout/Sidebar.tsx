@@ -49,7 +49,7 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-3 px-3 space-y-0.5 overflow-y-auto">
+      <nav aria-label="Main navigation" className="flex-1 py-3 px-3 space-y-0.5 overflow-y-auto">
         <div className="text-[10px] font-mono text-[var(--text-muted)] tracking-wider uppercase px-2.5 py-2">
           Workspace
         </div>
@@ -64,6 +64,7 @@ export function Sidebar() {
             >
               <Link
                 href={href}
+                aria-current={isActive ? "page" : undefined}
                 className={`
                   flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-all
                   ${

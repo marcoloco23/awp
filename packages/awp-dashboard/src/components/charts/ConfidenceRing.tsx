@@ -23,7 +23,7 @@ export function ConfidenceRing({ confidence, size = 64 }: Props) {
   ];
 
   return (
-    <div className="flex flex-col items-center gap-0.5">
+    <div className="flex flex-col items-center gap-0.5" role="img" aria-label={`Confidence: ${Math.round(confidence * 100)}%`}>
       <div className="relative" style={{ width: size, height: size }}>
         <ResponsiveContainer width="100%" height="100%">
           <RadialBarChart

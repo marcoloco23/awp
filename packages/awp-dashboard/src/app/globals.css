@@ -346,3 +346,20 @@ a {
   border: 1px solid var(--border) !important;
   border-radius: var(--radius-md) !important;
 }
+
+/* --- Skeleton Loading Pulse --- */
+.skeleton-pulse {
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-pulse {
+    animation: none !important;
+    opacity: 0.5;
+  }
+}

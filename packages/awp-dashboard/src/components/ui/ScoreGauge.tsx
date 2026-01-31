@@ -31,7 +31,7 @@ export function ScoreGauge({
   return (
     <div className="flex flex-col items-center gap-1">
       <div className="relative" style={{ width: size, height: size }}>
-        <svg width={size} height={size} className="-rotate-90">
+        <svg width={size} height={size} className="-rotate-90" role="img" aria-label={`Score: ${(score * 100).toFixed(0)}%${label ? ` — ${label}` : ""}`}>
           {/* Background track */}
           <circle
             cx={size / 2}

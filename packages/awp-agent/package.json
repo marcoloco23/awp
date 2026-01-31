@@ -1,6 +1,6 @@
 {
   "name": "@agent-workspace/agent",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Agent runtime for AWP experiments — framework-agnostic adapter pattern with OpenAI and Anthropic implementations",
   "license": "Apache-2.0",
   "type": "module",
@@ -45,8 +45,8 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@agent-workspace/core": "0.6.0",
-    "@agent-workspace/utils": "0.6.0",
+    "@agent-workspace/core": "0.7.0",
+    "@agent-workspace/utils": "0.7.0",
     "@anthropic-ai/sdk": "^0.35.0",
     "gray-matter": "^4.0.3",
     "openai": "^4.77.0"

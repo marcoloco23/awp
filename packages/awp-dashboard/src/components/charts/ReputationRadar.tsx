@@ -29,6 +29,7 @@ export function ReputationRadar({ dimensions }: Props) {
   if (data.length < 2) return null;
 
   return (
+    <div role="img" aria-label={`Reputation radar: ${data.map((d) => `${d.dimension} ${d.score}`).join(", ")}`}>
     <ResponsiveContainer width="100%" height={240}>
       <RadarChart data={data} cx="50%" cy="50%" outerRadius="75%">
         <PolarGrid stroke="var(--border)" />
@@ -44,5 +45,6 @@ export function ReputationRadar({ dimensions }: Props) {
         />
       </RadarChart>
     </ResponsiveContainer>
+    </div>
   );
 }

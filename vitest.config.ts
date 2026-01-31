@@ -5,6 +5,7 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["**/src/**/*.test.ts"],
+    exclude: ["packages/awp-dashboard/**", "node_modules/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
