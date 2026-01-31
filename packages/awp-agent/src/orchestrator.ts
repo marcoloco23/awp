@@ -5,11 +5,11 @@
  * and collects metrics.
  */
 
-import { writeFile, readFile, mkdir, readdir } from "node:fs/promises";
+import { readFile, mkdir, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import matter from "gray-matter";
 import { AWP_VERSION, RDP_VERSION, CONTRACTS_DIR, REPUTATION_DIR } from "@agent-workspace/core";
-import { updateDimension } from "@agent-workspace/utils";
+import { updateDimension, atomicWriteFile, withFileLock, safeWriteJson } from "@agent-workspace/utils";
 import type { ReputationDimension, ReputationSignal } from "@agent-workspace/core";
 import type {
   AgentAdapter,
@@ -17,6 +17,7 @@ import type {
   CycleResult,
   ExperimentResult,
   AgentTask,
+  TaskResult,
   SocietyConfig,
 } from "./types.js";
 import { MetricsCollector } from "./metrics.js";
@@ -275,36 +276,92 @@ ${description}
 Active — awaiting completion.
 `;
 
-    await writeFile(
+    await atomicWriteFile(
       join(contractDir, `${slug}.md`),
-      matter.stringify(contractContent, contractFrontmatter),
-      "utf-8"
+      matter.stringify(contractContent, contractFrontmatter)
     );
 
     return { id: contractId, slug };
   }
 
   /**
-   * Assign contracts to agents based on reputation.
+   * Compute purity-weighted score for an agent based on manifesto weights.
+   */
+  private computePurityScore(
+    reputation: Awaited<ReturnType<AgentAdapter["getReputation"]>>
+  ): number {
+    let score = 0;
+    let totalWeight = 0;
+
+    for (const [dimension, weight] of Object.entries(this.manifesto.purity)) {
+      const dim = reputation.dimensions[dimension];
+      if (dim) {
+        score += dim.score * weight;
+        totalWeight += weight;
+      }
+    }
+
+    return totalWeight > 0 ? score / totalWeight : 0.5;
+  }
+
+  /**
+   * Assign contracts to agents weighted by reputation (softmax selection).
    */
   private assignContracts(
     contractIds: string[],
     reputations: Record<string, Awaited<ReturnType<AgentAdapter["getReputation"]>>>
   ): Record<string, string[]> {
     const assignments: Record<string, string[]> = {};
+    const maxContracts = this.manifesto.constraints.maxContractsPerAgent;
 
     // Initialize assignments for all agents
     for (const agent of this.agents) {
       assignments[agent.id] = [];
     }
 
-    // For now, simple round-robin assignment
-    // In production, use reputation to weight assignment
-    let agentIdx = 0;
+    // Compute purity-weighted scores for each agent
+    const scores = this.agents.map((agent) => {
+      const rep = reputations[agent.id];
+      return rep ? this.computePurityScore(rep) : 0.5;
+    });
+
+    // Softmax with temperature=0.5 (sharper distribution)
+    const temperature = 0.5;
+    const expScores = scores.map((s) => Math.exp(s / temperature));
+    const sumExp = expScores.reduce((a, b) => a + b, 0);
+    const probabilities = expScores.map((e) => e / sumExp);
+
+    // Assign contracts using weighted random selection
     for (const contractId of contractIds) {
-      const agent = this.agents[agentIdx];
-      assignments[agent.id].push(contractId);
-      agentIdx = (agentIdx + 1) % this.agents.length;
+      // Sample from distribution, respecting maxContracts
+      let assigned = false;
+      let attempts = 0;
+
+      while (!assigned && attempts < this.agents.length * 3) {
+        const r = this.random();
+        let cumulative = 0;
+
+        for (let i = 0; i < this.agents.length; i++) {
+          cumulative += probabilities[i];
+          if (r <= cumulative) {
+            if (assignments[this.agents[i].id].length < maxContracts) {
+              assignments[this.agents[i].id].push(contractId);
+              assigned = true;
+            }
+            break;
+          }
+        }
+
+        attempts++;
+      }
+
+      // Fallback: assign to agent with fewest contracts
+      if (!assigned) {
+        const minAgent = this.agents.reduce((min, agent) =>
+          assignments[agent.id].length < assignments[min.id].length ? agent : min
+        );
+        assignments[minAgent.id].push(contractId);
+      }
     }
 
     return assignments;
@@ -327,58 +384,191 @@ Active — awaiting completion.
   }
 
   /**
-   * Evaluate task result and update agent reputation.
+   * Score epistemic hygiene from task result.
+   *
+   * Evaluates:
+   * - Artifact confidence scores (moderate 0.4-0.7 rewarded, overconfident >0.9 penalized)
+   * - Uncertainty language in output (hedging markers increase score)
+   * - Having any confidence score vs none
+   */
+  private scoreEpistemicHygiene(result: TaskResult): number {
+    let score = 0.5; // baseline
+    let signals = 0;
+
+    // Check artifact writes for confidence scores
+    const artifactWrites = result.toolCalls.filter((tc) => tc.name === "awp_artifact_write");
+    if (artifactWrites.length > 0) {
+      for (const write of artifactWrites) {
+        const confidence = write.arguments?.confidence as number | undefined;
+        if (confidence !== undefined) {
+          signals++;
+          // Reward moderate confidence, penalize overconfidence
+          if (confidence >= 0.4 && confidence <= 0.7) {
+            score += 0.15; // well-calibrated
+          } else if (confidence > 0.9) {
+            score -= 0.1; // overconfident
+          } else if (confidence < 0.3) {
+            score += 0.05; // at least honest about uncertainty
+          } else {
+            score += 0.05; // reasonable range
+          }
+        } else {
+          // No confidence score at all — slight penalty
+          signals++;
+          score -= 0.05;
+        }
+      }
+    }
+
+    // Check output for uncertainty language
+    const output = (result.output || result.rawResponse || "").toLowerCase();
+    const hedgingMarkers = [
+      "uncertain", "unclear", "might", "perhaps", "likely",
+      "appears to", "seems", "it is possible", "low confidence",
+      "speculate", "preliminary", "tentative",
+    ];
+    const overconfidenceMarkers = [
+      "definitely", "certainly", "obviously", "clearly",
+      "without doubt", "undoubtedly", "absolutely",
+    ];
+
+    const hedgeCount = hedgingMarkers.filter((m) => output.includes(m)).length;
+    const overconfidenceCount = overconfidenceMarkers.filter((m) => output.includes(m)).length;
+
+    if (hedgeCount > 0) {
+      score += Math.min(hedgeCount * 0.03, 0.12);
+      signals++;
+    }
+    if (overconfidenceCount > 0) {
+      score -= Math.min(overconfidenceCount * 0.03, 0.1);
+      signals++;
+    }
+
+    // Clamp and add noise
+    return Math.max(0.1, Math.min(0.95, score + (this.random() - 0.5) * 0.1));
+  }
+
+  /**
+   * Score coordination from task result.
+   *
+   * Evaluates:
+   * - Read-before-write pattern (artifact_read/list before artifact_write)
+   * - Contract lifecycle compliance (accept + complete)
+   */
+  private scoreCoordination(result: TaskResult): number {
+    let score = 0.5; // baseline
+
+    const toolNames = result.toolCalls.map((tc) => tc.name);
+
+    // Read-before-write pattern
+    const hasRead = toolNames.includes("awp_artifact_read") || toolNames.includes("awp_artifact_list");
+    const hasWrite = toolNames.includes("awp_artifact_write");
+
+    if (hasWrite && hasRead) {
+      // First read index before first write index
+      const firstReadIdx = toolNames.findIndex(
+        (n) => n === "awp_artifact_read" || n === "awp_artifact_list"
+      );
+      const firstWriteIdx = toolNames.findIndex((n) => n === "awp_artifact_write");
+
+      if (firstReadIdx < firstWriteIdx) {
+        score += 0.15; // good: read before write
+      } else {
+        score += 0.05; // at least both happened
+      }
+    } else if (hasWrite && !hasRead) {
+      score -= 0.05; // wrote without reading existing artifacts
+    }
+
+    // Contract lifecycle compliance
+    const hasAccept = toolNames.includes("awp_contract_accept");
+    const hasComplete = toolNames.includes("awp_contract_complete") || toolNames.includes("task_complete");
+
+    if (hasAccept && hasComplete) {
+      score += 0.15; // proper lifecycle
+    } else if (hasComplete && !hasAccept) {
+      score += 0.05; // completed but didn't formally accept
+    } else if (!hasComplete) {
+      score -= 0.1; // didn't signal completion
+    }
+
+    // Clamp and add noise
+    return Math.max(0.1, Math.min(0.95, score + (this.random() - 0.5) * 0.1));
+  }
+
+  /**
+   * Evaluate task result and update agent reputation across all dimensions.
    */
   private async evaluateAndUpdateReputation(
     agent: AgentAdapter,
     contractId: string,
-    result: Awaited<ReturnType<AgentAdapter["executeTask"]>>
+    result: TaskResult
   ): Promise<void> {
-    const slug = contractId.replace("contract:", "");
     const now = new Date();
     const nowIso = now.toISOString();
 
-    // Compute score based on result
-    const score = result.success ? 0.7 + this.random() * 0.3 : 0.2 + this.random() * 0.3;
+    // Compute scores for each dimension
+    const reliabilityScore = result.success ? 0.7 + this.random() * 0.3 : 0.2 + this.random() * 0.3;
+    const epistemicScore = this.scoreEpistemicHygiene(result);
+    const coordinationScore = this.scoreCoordination(result);
+
+    const dimensionScores: Array<{ dimension: string; score: number; message: string }> = [
+      {
+        dimension: "reliability",
+        score: reliabilityScore,
+        message: result.success ? "Task completed successfully" : "Task failed",
+      },
+      {
+        dimension: "epistemic-hygiene",
+        score: epistemicScore,
+        message: `Epistemic hygiene: confidence calibration ${epistemicScore > 0.6 ? "good" : "needs improvement"}`,
+      },
+      {
+        dimension: "coordination",
+        score: coordinationScore,
+        message: `Coordination: ${coordinationScore > 0.6 ? "good patterns" : "suboptimal patterns"}`,
+      },
+    ];
 
     // Update reputation profile
     const repDir = join(agent.workspace, REPUTATION_DIR);
     const repFile = join(repDir, `${agent.id}.md`);
 
     try {
-      const raw = await readFile(repFile, "utf-8");
-      const { data, content } = matter(raw);
+      await withFileLock(repFile, async () => {
+        const raw = await readFile(repFile, "utf-8");
+        const { data, content } = matter(raw);
+        const dimensions = (data.dimensions as Record<string, ReputationDimension>) || {};
+        const signals = (data.signals as ReputationSignal[]) || [];
 
-      // Create signal
-      const signal: ReputationSignal = {
-        source: "orchestrator",
-        dimension: "reliability",
-        score,
-        timestamp: nowIso,
-        evidence: contractId,
-        message: result.success ? "Task completed successfully" : "Task failed",
-      };
+        for (const { dimension, score, message } of dimensionScores) {
+          // Create signal
+          const signal: ReputationSignal = {
+            source: "orchestrator",
+            dimension,
+            score,
+            timestamp: nowIso,
+            evidence: contractId,
+            message,
+          };
+          signals.push(signal);
 
-      // Update dimension
-      const dimensions = (data.dimensions as Record<string, ReputationDimension>) || {};
-      const reliabilityDim = dimensions.reliability || {
-        score: 0.5,
-        confidence: 0,
-        sampleSize: 0,
-        lastSignal: nowIso,
-      };
+          // Update dimension
+          const dim = dimensions[dimension] || {
+            score: 0.5,
+            confidence: 0,
+            sampleSize: 0,
+            lastSignal: nowIso,
+          };
+          dimensions[dimension] = updateDimension(dim, score, now);
+        }
 
-      const updated = updateDimension(reliabilityDim, score, now);
-      dimensions.reliability = updated;
-      data.dimensions = dimensions;
+        data.dimensions = dimensions;
+        data.signals = signals;
+        data.lastUpdated = nowIso;
 
-      // Append signal
-      const signals = (data.signals as ReputationSignal[]) || [];
-      signals.push(signal);
-      data.signals = signals;
-      data.lastUpdated = nowIso;
-
-      await writeFile(repFile, matter.stringify(content, data), "utf-8");
+        await atomicWriteFile(repFile, matter.stringify(content, data));
+      });
     } catch {
       // Reputation file doesn't exist — skip
     }
@@ -392,8 +582,9 @@ Active — awaiting completion.
     await mkdir(metricsDir, { recursive: true });
 
     const filename = `${result.experimentId}.json`;
-    await writeFile(join(metricsDir, filename), JSON.stringify(result, null, 2), "utf-8");
+    const filePath = join(metricsDir, filename);
+    await safeWriteJson(filePath, result);
 
-    console.log(`Results saved to: ${join(metricsDir, filename)}`);
+    console.log(`Results saved to: ${filePath}`);
   }
 }

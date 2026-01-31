@@ -5,7 +5,7 @@
  */
 
 import OpenAI from "openai";
-import type { AgentTask, TaskResult, ToolCall } from "./types.js";
+import type { AgentTask, TaskResult, ToolCall, ManifestoConfig } from "./types.js";
 import { BaseAgent, MAX_ITERATIONS, DEFAULT_TIMEOUT_MS } from "./base-agent.js";
 import { AWP_TOOLS, executeToolCall } from "./tools.js";
 import { DEFAULT_OPENAI_MODEL } from "./constants.js";
@@ -20,9 +20,10 @@ export class OpenAIAgent extends BaseAgent {
     id: string,
     workspace: string,
     private readonly model: string = DEFAULT_OPENAI_MODEL,
-    apiKey?: string
+    apiKey?: string,
+    manifesto?: ManifestoConfig
   ) {
-    super(id, workspace);
+    super(id, workspace, manifesto);
     this.client = new OpenAI({
       apiKey: apiKey || process.env.OPENAI_API_KEY,
     });

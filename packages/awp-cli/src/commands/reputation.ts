@@ -1,4 +1,5 @@
-import { writeFile, mkdir } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
+import { atomicWriteFile, withFileLock } from "@agent-workspace/utils";
 import { join } from "node:path";
 import { AWP_VERSION, RDP_VERSION, REPUTATION_DIR } from "@agent-workspace/core";
 import type { ReputationProfileFrontmatter, ReputationSignal } from "@agent-workspace/core";
@@ -194,37 +195,40 @@ export async function reputationSignalCommand(
       body,
       filePath,
     });
-    await writeFile(filePath, content, "utf-8");
+    await atomicWriteFile(filePath, content);
     console.log(`Created reputation/${slug}.md — ${options.dimension}: ${scoreNum}`);
     return;
   }
 
-  // Update existing profile
-  const fm = profile.frontmatter;
-  fm.lastUpdated = timestamp;
-  fm.signals.push(signal);
+  // Update existing profile (locked — concurrent signals possible)
+  await withFileLock(profile.filePath, async () => {
+    const fm = profile.frontmatter;
+    fm.lastUpdated = timestamp;
+    fm.signals.push(signal);
 
-  if (!fm.dimensions) fm.dimensions = {};
-  if (!fm.domainCompetence) fm.domainCompetence = {};
+    if (!fm.dimensions) fm.dimensions = {};
+    if (!fm.domainCompetence) fm.domainCompetence = {};
 
-  if (options.dimension === "domain-competence" && options.domain) {
-    fm.domainCompetence[options.domain] = updateDimension(
-      fm.domainCompetence[options.domain],
-      scoreNum,
-      now
-    );
-  } else {
-    fm.dimensions[options.dimension] = updateDimension(
-      fm.dimensions[options.dimension],
-      scoreNum,
-      now
-    );
-  }
+    if (options.dimension === "domain-competence" && options.domain) {
+      fm.domainCompetence[options.domain] = updateDimension(
+        fm.domainCompetence[options.domain],
+        scoreNum,
+        now
+      );
+    } else {
+      fm.dimensions[options.dimension] = updateDimension(
+        fm.dimensions[options.dimension],
+        scoreNum,
+        now
+      );
+    }
 
-  const content = serializeWorkspaceFile(profile);
-  await writeFile(profile.filePath, content, "utf-8");
+    const content = serializeWorkspaceFile(profile);
+    await atomicWriteFile(profile.filePath, content);
+  });
+  const pfm = profile.frontmatter;
   console.log(
-    `Updated reputation/${slug}.md — ${options.dimension}${options.domain ? `:${options.domain}` : ""}: ${scoreNum} (sample ${fm.dimensions[options.dimension]?.sampleSize ?? fm.domainCompetence[options.domain!]?.sampleSize})`
+    `Updated reputation/${slug}.md — ${options.dimension}${options.domain ? `:${options.domain}` : ""}: ${scoreNum} (sample ${pfm.dimensions?.[options.dimension]?.sampleSize ?? pfm.domainCompetence?.[options.domain!]?.sampleSize})`
   );
 }
 

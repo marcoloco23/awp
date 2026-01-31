@@ -5,7 +5,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
-import type { AgentTask, TaskResult, ToolCall, ToolDefinition } from "./types.js";
+import type { AgentTask, TaskResult, ToolCall, ToolDefinition, ManifestoConfig } from "./types.js";
 import { BaseAgent, MAX_ITERATIONS, DEFAULT_TIMEOUT_MS } from "./base-agent.js";
 import { AWP_TOOLS, executeToolCall } from "./tools.js";
 import { DEFAULT_ANTHROPIC_MODEL, DEFAULT_ANTHROPIC_MAX_TOKENS } from "./constants.js";
@@ -31,9 +31,10 @@ export class AnthropicAgent extends BaseAgent {
     id: string,
     workspace: string,
     private readonly model: string = DEFAULT_ANTHROPIC_MODEL,
-    apiKey?: string
+    apiKey?: string,
+    manifesto?: ManifestoConfig
   ) {
-    super(id, workspace);
+    super(id, workspace, manifesto);
     this.client = new Anthropic({
       apiKey: apiKey || process.env.ANTHROPIC_API_KEY,
     });

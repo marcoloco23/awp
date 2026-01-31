@@ -1,4 +1,5 @@
-import { writeFile, mkdir } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
+import { atomicWriteFile, withFileLock } from "@agent-workspace/utils";
 import { join } from "node:path";
 import { AWP_VERSION, RDP_VERSION, CONTRACTS_DIR } from "@agent-workspace/core";
 import type { DelegationContractFrontmatter } from "@agent-workspace/core";
@@ -12,7 +13,7 @@ import {
   evaluateContract,
 } from "../lib/contract.js";
 import { getAgentDid } from "../lib/artifact.js";
-import { loadProfile, updateDimension } from "../lib/reputation.js";
+import { loadProfile, updateDimension, slugToProfilePath } from "../lib/reputation.js";
 
 /**
  * awp contract create <slug>
@@ -79,7 +80,7 @@ export async function contractCreateCommand(
     body,
     filePath,
   });
-  await writeFile(filePath, content, "utf-8");
+  await atomicWriteFile(filePath, content);
   console.log(`Created contracts/${slug}.md (status: active)`);
 }
 
@@ -241,7 +242,9 @@ export async function contractEvaluateCommand(
   fm.evaluation.result = scores;
 
   const content = serializeWorkspaceFile(contract);
-  await writeFile(contract.filePath, content, "utf-8");
+  await withFileLock(contract.filePath, async () => {
+    await atomicWriteFile(contract.filePath, content);
+  });
 
   console.log(`Evaluated contracts/${slug}.md — weighted score: ${weightedScore}`);
   console.log("");
@@ -249,22 +252,24 @@ export async function contractEvaluateCommand(
   // Apply signals to delegate's reputation profile
   const delegateSlug = fm.delegateSlug;
   try {
-    const profile = await loadProfile(root, delegateSlug);
-    const pfm = profile.frontmatter;
-    pfm.lastUpdated = now.toISOString();
-    if (!pfm.dimensions) pfm.dimensions = {};
+    await withFileLock(slugToProfilePath(root, delegateSlug), async () => {
+      const profile = await loadProfile(root, delegateSlug);
+      const pfm = profile.frontmatter;
+      pfm.lastUpdated = now.toISOString();
+      if (!pfm.dimensions) pfm.dimensions = {};
 
-    for (const signal of signals) {
-      pfm.signals.push(signal);
-      pfm.dimensions[signal.dimension] = updateDimension(
-        pfm.dimensions[signal.dimension],
-        signal.score,
-        now
-      );
-    }
+      for (const signal of signals) {
+        pfm.signals.push(signal);
+        pfm.dimensions[signal.dimension] = updateDimension(
+          pfm.dimensions[signal.dimension],
+          signal.score,
+          now
+        );
+      }
 
-    const profileContent = serializeWorkspaceFile(profile);
-    await writeFile(profile.filePath, profileContent, "utf-8");
+      const profileContent = serializeWorkspaceFile(profile);
+      await atomicWriteFile(profile.filePath, profileContent);
+    });
     console.log(`Updated reputation/${delegateSlug}.md — reliability: ${weightedScore}`);
   } catch {
     // No existing profile — warn but still complete

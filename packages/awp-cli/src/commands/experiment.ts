@@ -38,7 +38,7 @@ export async function experimentSocietyCreateCommand(options: {
     const manager = new SocietyManager(outputDir);
 
     const societyId = `${manifesto.id.replace(/[^a-z0-9]/gi, "-")}-${Date.now()}`;
-    const society = await manager.createSociety(societyId, manifesto.id, numAgents, seed);
+    const society = await manager.createSociety(societyId, manifesto, numAgents, seed);
 
     console.log(`\nSociety created: ${society.id}`);
     console.log(`  Path: ${society.path}`);
@@ -106,13 +106,13 @@ export async function experimentRunCommand(options: {
     const manifestoPath = resolve(options.manifesto);
     const manifesto = await parseManifesto(manifestoPath);
 
-    // Create agents based on provider
+    // Create agents based on provider (pass manifesto for behavior shaping)
     const agents = society.agents.map((workspacePath, i) => {
       const agentId = `agent-${(i + 1).toString().padStart(2, "0")}`;
       if (provider === "anthropic") {
-        return new AnthropicAgent(agentId, workspacePath, model);
+        return new AnthropicAgent(agentId, workspacePath, model, undefined, manifesto);
       }
-      return new OpenAIAgent(agentId, workspacePath, model);
+      return new OpenAIAgent(agentId, workspacePath, model, undefined, manifesto);
     });
 
     // Initialize agents (load identity)

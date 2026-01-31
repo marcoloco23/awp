@@ -5,7 +5,7 @@
  * for OpenAI's function calling API.
  */
 
-import { readFile, writeFile, readdir, mkdir } from "node:fs/promises";
+import { readFile, readdir, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import matter from "gray-matter";
 import {
@@ -16,7 +16,7 @@ import {
   CONTRACTS_DIR,
   REPUTATION_DIR,
 } from "@agent-workspace/core";
-import { getAgentDid, updateDimension } from "@agent-workspace/utils";
+import { getAgentDid, updateDimension, atomicWriteFile, withFileLock } from "@agent-workspace/utils";
 import type { ReputationDimension, ReputationSignal } from "@agent-workspace/core";
 import type { ToolDefinition, ToolCall } from "./types.js";
 
@@ -294,83 +294,85 @@ async function executeArtifactWrite(
   const did = await getAgentDid(workspace);
   const now = new Date().toISOString();
 
-  let fileData: { data: Record<string, unknown>; content: string };
-  let version: number;
-  let isNew = false;
+  return withFileLock(filePath, async () => {
+    let fileData: { data: Record<string, unknown>; content: string };
+    let version: number;
+    let isNew = false;
 
-  try {
-    const raw = await readFile(filePath, "utf-8");
-    fileData = matter(raw);
+    try {
+      const raw = await readFile(filePath, "utf-8");
+      fileData = matter(raw);
 
-    // Update existing
-    fileData.data.version = ((fileData.data.version as number) || 1) + 1;
-    version = fileData.data.version as number;
-    fileData.data.lastModified = now;
-    fileData.data.modifiedBy = did;
-    fileData.content = `\n${bodyContent}\n`;
+      // Update existing
+      fileData.data.version = ((fileData.data.version as number) || 1) + 1;
+      version = fileData.data.version as number;
+      fileData.data.lastModified = now;
+      fileData.data.modifiedBy = did;
+      fileData.content = `\n${bodyContent}\n`;
 
-    if (confidence !== undefined) fileData.data.confidence = confidence;
-    if (title) fileData.data.title = title;
+      if (confidence !== undefined) fileData.data.confidence = confidence;
+      if (title) fileData.data.title = title;
 
-    // Add author if new
-    const authors = fileData.data.authors as string[] | undefined;
-    if (!authors?.includes(did)) {
-      if (!fileData.data.authors) fileData.data.authors = [];
-      (fileData.data.authors as string[]).push(did);
+      // Add author if new
+      const authors = fileData.data.authors as string[] | undefined;
+      if (!authors?.includes(did)) {
+        if (!fileData.data.authors) fileData.data.authors = [];
+        (fileData.data.authors as string[]).push(did);
+      }
+
+      // Append provenance
+      if (!fileData.data.provenance) fileData.data.provenance = [];
+      (fileData.data.provenance as unknown[]).push({
+        agent: did,
+        action: "updated",
+        timestamp: now,
+        message,
+        confidence,
+      });
+    } catch {
+      // Create new
+      isNew = true;
+      version = 1;
+      const artifactTitle =
+        title ||
+        slug
+          .split("-")
+          .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(" ");
+
+      fileData = {
+        data: {
+          awp: AWP_VERSION,
+          smp: SMP_VERSION,
+          type: "knowledge-artifact",
+          id: `artifact:${slug}`,
+          title: artifactTitle,
+          authors: [did],
+          version: 1,
+          confidence,
+          created: now,
+          lastModified: now,
+          modifiedBy: did,
+          provenance: [
+            {
+              agent: did,
+              action: "created",
+              timestamp: now,
+              message,
+            },
+          ],
+        },
+        content: `\n${bodyContent}\n`,
+      };
     }
 
-    // Append provenance
-    if (!fileData.data.provenance) fileData.data.provenance = [];
-    (fileData.data.provenance as unknown[]).push({
-      agent: did,
-      action: "updated",
-      timestamp: now,
-      message,
-      confidence,
-    });
-  } catch {
-    // Create new
-    isNew = true;
-    version = 1;
-    const artifactTitle =
-      title ||
-      slug
-        .split("-")
-        .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(" ");
+    const output = matter.stringify(fileData.content, fileData.data);
+    await atomicWriteFile(filePath, output);
 
-    fileData = {
-      data: {
-        awp: AWP_VERSION,
-        smp: SMP_VERSION,
-        type: "knowledge-artifact",
-        id: `artifact:${slug}`,
-        title: artifactTitle,
-        authors: [did],
-        version: 1,
-        confidence,
-        created: now,
-        lastModified: now,
-        modifiedBy: did,
-        provenance: [
-          {
-            agent: did,
-            action: "created",
-            timestamp: now,
-            message,
-          },
-        ],
-      },
-      content: `\n${bodyContent}\n`,
+    return {
+      result: `${isNew ? "Created" : "Updated"} artifacts/${slug}.md (version ${version})`,
     };
-  }
-
-  const output = matter.stringify(fileData.content, fileData.data);
-  await writeFile(filePath, output, "utf-8");
-
-  return {
-    result: `${isNew ? "Created" : "Updated"} artifacts/${slug}.md (version ${version})`,
-  };
+  });
 }
 
 async function executeArtifactList(workspace: string, tag?: string): Promise<{ result: string }> {
@@ -418,23 +420,25 @@ async function executeContractAccept(
   const contractPath = join(workspace, CONTRACTS_DIR, `${slug}.md`);
 
   try {
-    const raw = await readFile(contractPath, "utf-8");
-    const { data, content } = matter(raw);
+    return await withFileLock(contractPath, async () => {
+      const raw = await readFile(contractPath, "utf-8");
+      const { data, content } = matter(raw);
 
-    if (data.status !== "active") {
-      return {
-        result: `Contract "${slug}" is not active (status: ${data.status})`,
-        isError: true,
-      };
-    }
+      if (data.status !== "active") {
+        return {
+          result: `Contract "${slug}" is not active (status: ${data.status})`,
+          isError: true,
+        };
+      }
 
-    data.status = "in-progress";
-    data.acceptedAt = new Date().toISOString();
+      data.status = "in-progress";
+      data.acceptedAt = new Date().toISOString();
 
-    const output = matter.stringify(content, data);
-    await writeFile(contractPath, output, "utf-8");
+      const output = matter.stringify(content, data);
+      await atomicWriteFile(contractPath, output);
 
-    return { result: `Accepted contract "${slug}" — now in-progress` };
+      return { result: `Accepted contract "${slug}" — now in-progress` };
+    });
   } catch {
     return { result: `Contract "${slug}" not found`, isError: true };
   }
@@ -448,18 +452,20 @@ async function executeContractComplete(
   const contractPath = join(workspace, CONTRACTS_DIR, `${slug}.md`);
 
   try {
-    const raw = await readFile(contractPath, "utf-8");
-    const { data, content } = matter(raw);
+    return await withFileLock(contractPath, async () => {
+      const raw = await readFile(contractPath, "utf-8");
+      const { data, content } = matter(raw);
 
-    data.status = "completed";
-    data.completedAt = new Date().toISOString();
-    if (outputSlug) data.outputSlug = outputSlug;
-    if (message) data.completionMessage = message;
+      data.status = "completed";
+      data.completedAt = new Date().toISOString();
+      if (outputSlug) data.outputSlug = outputSlug;
+      if (message) data.completionMessage = message;
 
-    const output = matter.stringify(content, data);
-    await writeFile(contractPath, output, "utf-8");
+      const output = matter.stringify(content, data);
+      await atomicWriteFile(contractPath, output);
 
-    return { result: `Completed contract "${slug}"` };
+      return { result: `Completed contract "${slug}"` };
+    });
   } catch {
     return { result: `Contract "${slug}" not found`, isError: true };
   }

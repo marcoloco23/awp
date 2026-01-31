@@ -1,6 +1,7 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import matter from "gray-matter";
 import type { BaseFrontmatter, WorkspaceFile } from "@agent-workspace/core";
+import { atomicWriteFile } from "./safe-io.js";
 
 /**
  * Parse an AWP workspace file (Markdown with YAML frontmatter).
@@ -40,7 +41,7 @@ export async function writeWorkspaceFile<T extends BaseFrontmatter>(
   file: WorkspaceFile<T>
 ): Promise<void> {
   const content = serializeWorkspaceFile(file);
-  await writeFile(file.filePath, content, "utf-8");
+  await atomicWriteFile(file.filePath, content);
 }
 
 /**

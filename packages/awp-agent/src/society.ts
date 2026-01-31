@@ -9,11 +9,121 @@ import { mkdir, writeFile, readFile, readdir, cp } from "node:fs/promises";
 import { join } from "node:path";
 import matter from "gray-matter";
 import { AWP_VERSION, MANIFEST_PATH } from "@agent-workspace/core";
+import { safeWriteJson, withFileLock } from "@agent-workspace/utils";
 import type { SocietyConfig, ManifestoConfig } from "./types.js";
 import { SOCIETIES_DIR } from "./constants.js";
 
 /** Default society root directory */
 const DEFAULT_SOCIETIES_DIR = SOCIETIES_DIR;
+
+/** Format a dimension key for display (e.g. "epistemic-hygiene" → "Epistemic Hygiene") */
+function formatDimension(key: string): string {
+  return key
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+/**
+ * Generate SOUL.md content from manifesto values.
+ * When no manifesto is provided, falls back to generic defaults.
+ */
+export function generateSoulContent(manifesto?: ManifestoConfig): string {
+  if (!manifesto) {
+    return `
+# Values and Behavior
+
+## Core Values
+
+1. **Reliability** — Complete assigned tasks to the best of my ability
+2. **Epistemic Hygiene** — Report uncertainty honestly, avoid overconfidence
+3. **Coordination** — Work effectively with other agents
+
+## Behavioral Guidelines
+
+- Always use tools to accomplish tasks
+- Document work in artifacts with appropriate confidence scores
+- Accept contracts that match my capabilities
+- Signal completion when tasks are done
+`;
+  }
+
+  // Sort values by weight descending
+  const sortedValues = Object.entries(manifesto.values).sort(([, a], [, b]) => b - a);
+  const sortedPurity = Object.entries(manifesto.purity).sort(([, a], [, b]) => b - a);
+  const sortedFitness = Object.entries(manifesto.fitness).sort(([, a], [, b]) => b - a);
+
+  // Generate value list
+  const valuesList = sortedValues
+    .map(([key, weight], i) => `${i + 1}. **${formatDimension(key)}** (${(weight * 100).toFixed(0)}%)`)
+    .join("\n");
+
+  // Generate purity dimensions
+  const purityList = sortedPurity
+    .map(([key, weight]) => `- **${formatDimension(key)}** — ${(weight * 100).toFixed(0)}% of your reputation score`)
+    .join("\n");
+
+  // Generate fitness goals
+  const fitnessList = sortedFitness
+    .map(([key, weight]) => `- ${formatDimension(key)}: ${(weight * 100).toFixed(0)}%`)
+    .join("\n");
+
+  // Determine top values to generate targeted behavioral guidelines
+  const topValue = sortedValues[0]?.[0] || "";
+  const epistemicWeight = manifesto.purity["epistemic-hygiene"] || 0;
+
+  let guidelines: string;
+  if (epistemicWeight >= 0.3) {
+    // Epistemic-heavy manifesto
+    guidelines = `- Always use tools to accomplish tasks
+- Document work in artifacts with **carefully calibrated** confidence scores (0.0-1.0)
+- **Express uncertainty** where it exists — hedging is valued over false precision
+- Read existing artifacts before creating new ones to build on prior work
+- When making claims, scope them with confidence levels:
+  - 0.9-1.0: "It is clear that..."
+  - 0.7-0.9: "We can reasonably conclude..."
+  - 0.5-0.7: "It appears that..."
+  - Below 0.5: "I have low confidence but speculate..."
+- Accept contracts that match your capabilities
+- Signal completion when tasks are done`;
+  } else if (topValue.includes("throughput") || topValue.includes("goal-completion") || topValue.includes("competitive")) {
+    // Performance-heavy manifesto
+    guidelines = `- Complete tasks quickly and correctly — speed matters
+- Maximize output per token spent
+- Focus on results over deliberation
+- Document work in artifacts with confidence scores
+- Accept contracts aggressively — more completed work means higher reputation
+- Don't waste cycles on unnecessary hedging or over-analysis
+- Signal completion as soon as work is done`;
+  } else {
+    // Balanced manifesto
+    guidelines = `- Always use tools to accomplish tasks
+- Document work in artifacts with appropriate confidence scores
+- Read existing artifacts when relevant before creating new ones
+- Accept contracts that match your capabilities
+- Signal completion when tasks are done`;
+  }
+
+  return `
+# Values and Behavior
+
+## Core Values (${manifesto.name})
+
+${valuesList}
+
+## Reputation Dimensions (how you are evaluated)
+
+${purityList}
+
+## Society Fitness Goals
+
+${fitnessList}
+
+## Behavioral Guidelines
+
+${guidelines}
+`;
+}
 
 /**
  * Manages society creation and lifecycle.
@@ -29,12 +139,15 @@ export class SocietyManager {
    */
   async createSociety(
     id: string,
-    manifestoId: string,
+    manifesto: ManifestoConfig | string,
     numAgents: number,
     seed?: number
   ): Promise<SocietyConfig> {
     const societyPath = join(this.rootDir, id);
     await mkdir(societyPath, { recursive: true });
+
+    const manifestoId = typeof manifesto === "string" ? manifesto : manifesto.id;
+    const manifestoConfig = typeof manifesto === "string" ? undefined : manifesto;
 
     const agents: string[] = [];
     const now = new Date().toISOString();
@@ -43,7 +156,7 @@ export class SocietyManager {
     for (let i = 1; i <= numAgents; i++) {
       const agentId = `agent-${i.toString().padStart(2, "0")}`;
       const agentPath = join(societyPath, agentId);
-      await this.createAgentWorkspace(agentPath, agentId, manifestoId, i);
+      await this.createAgentWorkspace(agentPath, agentId, manifestoId, i, manifestoConfig);
       agents.push(agentPath);
     }
 
@@ -61,7 +174,7 @@ export class SocietyManager {
 
     // Write society config
     const configPath = join(societyPath, "society.json");
-    await writeFile(configPath, JSON.stringify(config, null, 2), "utf-8");
+    await safeWriteJson(configPath, config);
 
     // Write shared state directory
     const sharedDir = join(societyPath, "shared");
@@ -81,7 +194,8 @@ export class SocietyManager {
     workspacePath: string,
     agentId: string,
     manifestoId: string,
-    agentNumber: number
+    agentNumber: number,
+    manifesto?: ManifestoConfig
   ): Promise<void> {
     // Create directory structure
     await mkdir(workspacePath, { recursive: true });
@@ -137,32 +251,26 @@ I am an experimental agent participating in AWP society experiments.
       "utf-8"
     );
 
-    // Create SOUL.md
+    // Create SOUL.md — generated from manifesto values if available
     const soulFrontmatter = {
       awp: AWP_VERSION,
       type: "soul",
     };
-    const soulContent = `
-# Values and Behavior
-
-## Core Values
-
-1. **Reliability** — Complete assigned tasks to the best of my ability
-2. **Epistemic Hygiene** — Report uncertainty honestly, avoid overconfidence
-3. **Coordination** — Work effectively with other agents
-
-## Behavioral Guidelines
-
-- Always use tools to accomplish tasks
-- Document work in artifacts with appropriate confidence scores
-- Accept contracts that match my capabilities
-- Signal completion when tasks are done
-`;
+    const soulContent = generateSoulContent(manifesto);
     await writeFile(
       join(workspacePath, "SOUL.md"),
       matter.stringify(soulContent, soulFrontmatter),
       "utf-8"
     );
+
+    // Write manifesto.json for agent reference
+    if (manifesto) {
+      await writeFile(
+        join(workspacePath, "manifesto.json"),
+        JSON.stringify(manifesto, null, 2),
+        "utf-8"
+      );
+    }
 
     // Create initial reputation profile (self)
     const repFrontmatter = {
@@ -221,7 +329,9 @@ Initial reputation profile for experiment participant.
    */
   async updateSociety(config: SocietyConfig): Promise<void> {
     const configPath = join(config.path, "society.json");
-    await writeFile(configPath, JSON.stringify(config, null, 2), "utf-8");
+    await withFileLock(configPath, async () => {
+      await safeWriteJson(configPath, config);
+    });
   }
 
   /**

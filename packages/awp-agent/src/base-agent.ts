@@ -14,7 +14,7 @@ import {
   computeDecayedScore,
 } from "@agent-workspace/utils";
 import type { ReputationDimension } from "@agent-workspace/core";
-import type { AgentAdapter, AgentTask, TaskResult, AgentReputation } from "./types.js";
+import type { AgentAdapter, AgentTask, TaskResult, AgentReputation, ManifestoConfig } from "./types.js";
 
 /** Maximum tool call iterations to prevent infinite loops */
 export const MAX_ITERATIONS = 20;
@@ -38,7 +38,8 @@ export abstract class BaseAgent implements AgentAdapter {
 
   constructor(
     public readonly id: string,
-    public readonly workspace: string
+    public readonly workspace: string,
+    protected readonly manifesto?: ManifestoConfig
   ) {}
 
   /**
@@ -151,9 +152,43 @@ export abstract class BaseAgent implements AgentAdapter {
       // No soul file
     }
 
+    // Build manifesto context if available
+    let manifestoSection = "";
+    if (this.manifesto) {
+      const sortedValues = Object.entries(this.manifesto.values)
+        .sort(([, a], [, b]) => b - a)
+        .map(([k, v]) => `  - ${k}: ${(v * 100).toFixed(0)}%`)
+        .join("\n");
+
+      const sortedPurity = Object.entries(this.manifesto.purity)
+        .sort(([, a], [, b]) => b - a)
+        .map(([k, v]) => `  - ${k}: ${(v * 100).toFixed(0)}%`)
+        .join("\n");
+
+      const topPurity = Object.entries(this.manifesto.purity).sort(([, a], [, b]) => b - a)[0];
+      const epistemicWeight = this.manifesto.purity["epistemic-hygiene"] || 0;
+
+      let emphasis = "";
+      if (epistemicWeight >= 0.3) {
+        emphasis = `\nYour society values epistemic hygiene above all. Express uncertainty honestly. Calibrate confidence scores carefully — moderate scores (0.4-0.7) are better than overconfident ones. Retract errors publicly when discovered.`;
+      } else if (topPurity[0] === "reliability") {
+        emphasis = `\nYour society values reliability above all. Complete tasks efficiently and correctly. Focus on throughput and results.`;
+      }
+
+      manifestoSection = `## Manifesto: ${this.manifesto.name}
+
+Your reputation is scored on these dimensions (higher weight = more important):
+${sortedPurity}
+
+Your society prioritizes these values:
+${sortedValues}
+${emphasis}
+`;
+    }
+
     return `${identity}
 
-${soul ? `## Values and Behavior\n\n${soul}\n\n` : ""}## Your Current Task
+${soul ? `## Values and Behavior\n\n${soul}\n\n` : ""}${manifestoSection}## Your Current Task
 
 You have been assigned a delegation contract: ${task.contractId}
 

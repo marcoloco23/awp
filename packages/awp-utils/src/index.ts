@@ -55,6 +55,16 @@ export {
   getProjectSlug,
 } from "./graph.js";
 
+// Safe I/O utilities
+export {
+  atomicWriteFile,
+  withFileLock,
+  safeWriteJson,
+  loadJsonFile,
+  type AtomicWriteOptions,
+  type FileLockOptions,
+} from "./safe-io.js";
+
 // Swarm utilities (recruitment)
 export {
   type RecruitmentCandidate,

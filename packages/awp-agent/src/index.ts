@@ -24,4 +24,4 @@ export { AWP_TOOLS, executeToolCall } from "./tools.js";
 // Orchestration
 export { ExperimentOrchestrator } from "./orchestrator.js";
 export { MetricsCollector } from "./metrics.js";
-export { SocietyManager, parseManifesto } from "./society.js";
+export { SocietyManager, parseManifesto, generateSoulContent } from "./society.js";

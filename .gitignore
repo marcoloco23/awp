@@ -26,5 +26,11 @@ TOOLS.md
 # Experiment societies (generated test data)
 societies/
 
+# Safe I/O temp, lock, and backup files
+*.tmp
+*.lock
+*.bak
+*.bak.*
+
 # OS files
 .DS_Store
