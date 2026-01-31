@@ -48,6 +48,14 @@ import {
   swarmUpdateCommand,
 } from "./commands/swarm.js";
 import { statusCommand } from "./commands/status.js";
+import { dashboardCommand } from "./commands/dashboard.js";
+import {
+  experimentSocietyCreateCommand,
+  experimentRunCommand,
+  experimentCycleCommand,
+  experimentListCommand,
+  experimentShowCommand,
+} from "./commands/experiment.js";
 
 const program = new Command();
 
@@ -366,5 +374,54 @@ program
   .command("status")
   .description("Rich workspace overview — projects, tasks, reputation, health")
   .action(statusCommand);
+
+// awp dashboard
+program
+  .command("dashboard")
+  .description("Launch the governance dashboard (read-only web UI)")
+  .option("-p, --port <port>", "Port number", "3000")
+  .option("-w, --workspace <path>", "Path to AWP workspace (defaults to cwd)")
+  .action(dashboardCommand);
+
+// awp experiment
+const experiment = program
+  .command("experiment")
+  .description("Experiment operations — create societies, run experiments, compare results");
+
+const experimentSociety = experiment.command("society").description("Society management");
+
+experimentSociety
+  .command("create")
+  .description("Create a new society from a manifesto")
+  .requiredOption("-m, --manifesto <path>", "Path to manifesto file")
+  .requiredOption("-a, --agents <n>", "Number of agents to create")
+  .option("-s, --seed <n>", "Random seed for reproducibility")
+  .option("-o, --output <dir>", "Output directory (default: societies)")
+  .action(experimentSocietyCreateCommand);
+
+experiment
+  .command("run")
+  .description("Run a full experiment on a society")
+  .requiredOption("-s, --society <id>", "Society ID")
+  .requiredOption("-c, --cycles <n>", "Number of cycles to run")
+  .requiredOption("-m, --manifesto <path>", "Path to manifesto file")
+  .option("--model <model>", "LLM model to use (default: gpt-4o-mini)")
+  .action(experimentRunCommand);
+
+experiment
+  .command("cycle")
+  .description("Run a single cycle on a society")
+  .requiredOption("-s, --society <id>", "Society ID")
+  .requiredOption("-m, --manifesto <path>", "Path to manifesto file")
+  .option("--model <model>", "LLM model to use (default: gpt-4o-mini)")
+  .action(experimentCycleCommand);
+
+experiment.command("list").description("List all societies").action(experimentListCommand);
+
+experiment
+  .command("show")
+  .description("Show society details")
+  .argument("<society>", "Society ID")
+  .action(experimentShowCommand);
 
 program.parse();

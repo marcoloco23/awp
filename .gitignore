@@ -18,5 +18,13 @@ TOOLS.md
 .awp/workspace.json
 /memory/
 
+# Environment files (API keys)
+.env
+.env.local
+.env.*.local
+
+# Experiment societies (generated test data)
+societies/
+
 # OS files
 .DS_Store
