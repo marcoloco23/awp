@@ -194,3 +194,31 @@ export interface ReputationTimelineData {
   points: Array<Record<string, number>>;
   agents: Array<{ id: string; name: string; color: string }>;
 }
+
+// ── Sync / Federation types ──────────────────────────────────────────────────
+
+export interface SyncRemoteSummary {
+  name: string;
+  url: string;
+  transport: "local-fs" | "git-remote" | "http";
+  added: string;
+  lastSync: string | null;
+  trackedArtifacts: number;
+  signalsSynced: number;
+}
+
+export interface SyncConflictSummary {
+  artifact: string;
+  remote: string;
+  localVersion: number;
+  remoteVersion: number;
+  detectedAt: string;
+  reason: string;
+}
+
+export interface SyncOverview {
+  remotes: SyncRemoteSummary[];
+  conflicts: SyncConflictSummary[];
+  totalArtifactsSynced: number;
+  totalSignalsSynced: number;
+}

@@ -22,6 +22,7 @@ import type {
 } from "./types.js";
 import { MetricsCollector } from "./metrics.js";
 import { AWP_TOOLS } from "./tools.js";
+import { detectAntiPatterns } from "./anti-patterns.js";
 
 /** Task templates for generating contracts */
 const TASK_TEMPLATES = [
@@ -153,6 +154,19 @@ export class ExperimentOrchestrator {
 
         // Evaluate and update reputation
         await this.evaluateAndUpdateReputation(agent, contractId, result);
+      }
+    }
+
+    // Run anti-pattern detection
+    const antiPatterns = await detectAntiPatterns(this.agents, this.manifesto);
+    if (antiPatterns.length > 0) {
+      console.log(`  Anti-patterns detected: ${antiPatterns.length}`);
+      for (const ap of antiPatterns) {
+        console.log(`    ${ap.patternId} — ${ap.agentId} (penalty: ${ap.penalty})`);
+        this.metrics.recordAntiPattern(ap.patternId, ap.agentId, ap.penalty);
+
+        // Apply penalty to agent's reputation
+        await this.applyAntiPatternPenalty(ap.agentId, ap.patternId, ap.penalty);
       }
     }
 
@@ -564,6 +578,72 @@ Active — awaiting completion.
         }
 
         data.dimensions = dimensions;
+        data.signals = signals;
+        data.lastUpdated = nowIso;
+
+        await atomicWriteFile(repFile, matter.stringify(content, data));
+      });
+    } catch {
+      // Reputation file doesn't exist — skip
+    }
+  }
+
+  /**
+   * Apply a reputation penalty for a detected anti-pattern.
+   */
+  private async applyAntiPatternPenalty(
+    agentId: string,
+    patternId: string,
+    penalty: number
+  ): Promise<void> {
+    const agent = this.agents.find((a) => a.id === agentId);
+    if (!agent) return;
+
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const repDir = join(agent.workspace, REPUTATION_DIR);
+    const repFile = join(repDir, `${agentId}.md`);
+
+    // Map anti-patterns to affected reputation dimensions
+    const affectedDimensions: Record<string, string[]> = {
+      "artifact-spam": ["epistemic-hygiene", "coordination"],
+      "self-promotion": ["reliability", "epistemic-hygiene"],
+      "coalition-capture": ["coordination", "reliability"],
+    };
+
+    const dimensions = affectedDimensions[patternId] || ["reliability"];
+
+    try {
+      await withFileLock(repFile, async () => {
+        const raw = await readFile(repFile, "utf-8");
+        const { data, content } = matter(raw);
+        const dims = (data.dimensions as Record<string, ReputationDimension>) || {};
+        const signals = (data.signals as ReputationSignal[]) || [];
+
+        for (const dimension of dimensions) {
+          // Create a negative signal representing the penalty
+          const penaltyScore = Math.max(0, 0.5 - penalty);
+          const signal: ReputationSignal = {
+            source: "anti-pattern-detector",
+            dimension,
+            score: penaltyScore,
+            timestamp: nowIso,
+            evidence: `anti-pattern:${patternId}`,
+            message: `Anti-pattern detected: ${patternId} (penalty: ${penalty})`,
+          };
+          signals.push(signal);
+
+          // Update dimension with the penalty signal
+          const dim = dims[dimension] || {
+            score: 0.5,
+            confidence: 0,
+            sampleSize: 0,
+            lastSignal: nowIso,
+          };
+          dims[dimension] = updateDimension(dim, penaltyScore, now);
+        }
+
+        data.dimensions = dims;
         data.signals = signals;
         data.lastUpdated = nowIso;
 

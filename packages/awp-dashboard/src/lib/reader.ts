@@ -7,6 +7,9 @@ import {
   ARTIFACTS_DIR,
   CONTRACTS_DIR,
   MEMORY_DIR,
+  SYNC_REMOTES_FILE,
+  SYNC_STATE_DIR,
+  SYNC_CONFLICTS_DIR,
 } from "@agent-workspace/core";
 import { computeDecayedScore } from "@agent-workspace/utils";
 import type {
@@ -36,6 +39,9 @@ import type {
   CycleDataPoint,
   ReputationTimelineData,
   ExperimentResult,
+  SyncRemoteSummary,
+  SyncConflictSummary,
+  SyncOverview,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -610,6 +616,87 @@ export function computeCycleDataPoints(experiment: ExperimentResult): CycleDataP
     tasksSucceeded: c.metrics.tasksSucceeded,
     tasksFailed: c.metrics.tasksFailed,
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Sync / Federation
+// ---------------------------------------------------------------------------
+
+export async function readSyncOverview(): Promise<SyncOverview> {
+  const root = getRoot();
+  const remotes: SyncRemoteSummary[] = [];
+  let totalArtifactsSynced = 0;
+  let totalSignalsSynced = 0;
+
+  // Load remote registry
+  try {
+    const raw = await readFile(join(root, SYNC_REMOTES_FILE), "utf-8");
+    const registry = JSON.parse(raw) as { remotes: Record<string, { url: string; transport: string; added: string; lastSync: string | null }> };
+
+    for (const [name, remote] of Object.entries(registry.remotes)) {
+      // Load per-remote sync state
+      let trackedArtifacts = 0;
+      let signalsSynced = 0;
+
+      try {
+        const stateRaw = await readFile(join(root, SYNC_STATE_DIR, `${name}.json`), "utf-8");
+        const state = JSON.parse(stateRaw) as { artifacts: Record<string, unknown>; signals: { signalCount: number } };
+        trackedArtifacts = Object.keys(state.artifacts).length;
+        signalsSynced = state.signals.signalCount;
+      } catch {
+        /* no state file yet */
+      }
+
+      totalArtifactsSynced += trackedArtifacts;
+      totalSignalsSynced += signalsSynced;
+
+      remotes.push({
+        name,
+        url: remote.url,
+        transport: remote.transport as SyncRemoteSummary["transport"],
+        added: remote.added,
+        lastSync: remote.lastSync,
+        trackedArtifacts,
+        signalsSynced,
+      });
+    }
+  } catch {
+    /* no remotes configured */
+  }
+
+  // Load conflicts
+  const conflicts: SyncConflictSummary[] = [];
+  try {
+    const conflictFiles = await readdir(join(root, SYNC_CONFLICTS_DIR));
+    for (const f of conflictFiles) {
+      if (!f.endsWith(".conflict.json")) continue;
+      try {
+        const raw = await readFile(join(root, SYNC_CONFLICTS_DIR, f), "utf-8");
+        const descriptor = JSON.parse(raw) as {
+          artifact: string;
+          remote: string;
+          localVersion: number;
+          remoteVersion: number;
+          detectedAt: string;
+          reason: string;
+        };
+        conflicts.push({
+          artifact: descriptor.artifact,
+          remote: descriptor.remote,
+          localVersion: descriptor.localVersion,
+          remoteVersion: descriptor.remoteVersion,
+          detectedAt: descriptor.detectedAt,
+          reason: descriptor.reason,
+        });
+      } catch {
+        /* skip invalid conflict files */
+      }
+    }
+  } catch {
+    /* no conflicts dir */
+  }
+
+  return { remotes, conflicts, totalArtifactsSynced, totalSignalsSynced };
 }
 
 export function computeReputationTimeline(experiment: ExperimentResult): ReputationTimelineData {

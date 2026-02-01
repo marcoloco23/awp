@@ -6,7 +6,7 @@
 
 import { resolve, join } from "node:path";
 import { readFile, readdir } from "node:fs/promises";
-import { SOCIETIES_DIR } from "@agent-workspace/agent";
+import { SOCIETIES_DIR, compareExperiments } from "@agent-workspace/agent";
 import type { ExperimentResult } from "@agent-workspace/agent";
 
 /**
@@ -365,19 +365,16 @@ function computeAvgFinalReputation(result: ExperimentResult): number {
 }
 
 /**
- * awp experiment compare <exp1> <exp2> [--metric <metric>]
+ * awp experiment compare <exp1> <exp2> [--metric <metric>] [--statistical]
  */
 export async function experimentCompareCommand(
   exp1: string,
   exp2: string,
-  options: { metric?: string }
+  options: { metric?: string; statistical?: boolean }
 ): Promise<void> {
   try {
     const result1 = await loadExperimentResult(exp1);
     const result2 = await loadExperimentResult(exp2);
-
-    const name1 = result1.societyId.substring(0, 20);
-    const name2 = result2.societyId.substring(0, 20);
 
     console.log("═══════════════════════════════════════════════════════════════════════════");
     console.log(`  COMPARING EXPERIMENTS`);
@@ -499,6 +496,43 @@ export async function experimentCompareCommand(
         const met2 = c2?.met ? "✓" : "✗";
         console.log(`  ${criterionId.padEnd(30)} A: ${met1}  B: ${met2}`);
       }
+    }
+
+    // Statistical hypothesis testing (when --statistical flag is provided or by default for multi-cycle experiments)
+    if (options.statistical || (result1.cycles.length >= 3 && result2.cycles.length >= 3)) {
+      console.log();
+      console.log("═══════════════════════════════════════════════════════════════════════════");
+      console.log("  STATISTICAL HYPOTHESIS TESTING (Welch's t-test, α = 0.05)");
+      console.log("═══════════════════════════════════════════════════════════════════════════");
+      console.log();
+
+      const comparison = compareExperiments(result1, result2, { alpha: 0.05 });
+
+      console.log(
+        `${"Metric".padEnd(20)} | ${"Mean A".padEnd(10)} | ${"Mean B".padEnd(10)} | ${"p-value".padEnd(10)} | ${"Sig?".padEnd(5)} | Effect Size`
+      );
+      console.log(
+        `${"-".repeat(20)}-+-${"-".repeat(10)}-+-${"-".repeat(10)}-+-${"-".repeat(10)}-+-${"-".repeat(5)}-+-----------`
+      );
+
+      for (const mc of comparison.metrics) {
+        const sig = mc.test.significant ? "*" : " ";
+        console.log(
+          `${mc.metric.padEnd(20)} | ${mc.a.mean.toFixed(4).padEnd(10)} | ${mc.b.mean.toFixed(4).padEnd(10)} | ${mc.test.pValue.toFixed(4).padEnd(10)} | ${sig.padEnd(5)} | ${mc.test.effectSize.toFixed(3)} (${mc.test.effectLabel})`
+        );
+      }
+
+      console.log();
+      console.log(`  Significant differences: ${comparison.summary.significantDifferences}/${comparison.summary.totalMetrics}`);
+      console.log(`  Wins — A: ${comparison.summary.winCount.A}  B: ${comparison.summary.winCount.B}`);
+
+      if (comparison.summary.winner !== "tie") {
+        console.log(`  Overall winner: ${comparison.summary.winner}`);
+      } else {
+        console.log(`  Overall: tie (no significant advantage)`);
+      }
+      console.log();
+      console.log("  * = significant at α = 0.05");
     }
   } catch (error) {
     console.error("Error comparing experiments:", error instanceof Error ? error.message : error);

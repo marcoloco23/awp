@@ -246,4 +246,60 @@ export function registerSyncTools(server: McpServer): void {
       };
     }
   );
+
+  // --- Tool: awp_sync_pull_signals ---
+  server.registerTool(
+    "awp_sync_pull_signals",
+    {
+      title: "Pull Reputation Signals",
+      description:
+        "Pull reputation signals from a remote workspace. Signals are de-duplicated and merged into local reputation profiles using EWMA scoring.",
+      inputSchema: {
+        remote: z.string().describe("Remote name"),
+        since: z
+          .string()
+          .optional()
+          .describe("Only pull signals after this ISO timestamp (default: last sync time)"),
+      },
+    },
+    async ({ remote, since }) => {
+      const root = getWorkspaceRoot();
+      const engine = new SyncEngine(root);
+      const imported = await engine.pullSignals(remote, since);
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({ success: true, remote, imported }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  // --- Tool: awp_sync_push_signals ---
+  server.registerTool(
+    "awp_sync_push_signals",
+    {
+      title: "Push Reputation Signals",
+      description:
+        "Push local reputation signals to a remote workspace. Currently supports local-fs transport only.",
+      inputSchema: {
+        remote: z.string().describe("Remote name"),
+      },
+    },
+    async ({ remote }) => {
+      const root = getWorkspaceRoot();
+      const engine = new SyncEngine(root);
+      const pushed = await engine.pushSignals(remote);
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({ success: true, remote, pushed }, null, 2),
+          },
+        ],
+      };
+    }
+  );
 }
