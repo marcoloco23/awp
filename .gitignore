@@ -2,6 +2,7 @@ node_modules/
 dist/
 .turbo/
 .next/
+*.tsbuildinfo
 
 # AWP private keys (NEVER commit these)
 .awp/private-key.pem
