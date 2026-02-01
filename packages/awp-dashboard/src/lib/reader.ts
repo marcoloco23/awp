@@ -699,6 +699,18 @@ export async function readSyncOverview(): Promise<SyncOverview> {
   return { remotes, conflicts, totalArtifactsSynced, totalSignalsSynced };
 }
 
+export async function readExperimentComparison(
+  societyA: string,
+  experimentA: string,
+  societyB: string,
+  experimentB: string,
+): Promise<{ expA: ExperimentResult; expB: ExperimentResult } | null> {
+  const expA = await readExperiment(societyA, experimentA);
+  const expB = await readExperiment(societyB, experimentB);
+  if (!expA || !expB) return null;
+  return { expA, expB };
+}
+
 export function computeReputationTimeline(experiment: ExperimentResult): ReputationTimelineData {
   // Collect all agent IDs
   const agentIds = Object.keys(experiment.finalReputations);

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Users, Zap, FlaskConical, Target } from "lucide-react";
+import { ArrowLeft, Users, Zap, FlaskConical, Target, BarChart3 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge, StatusBadge } from "@/components/ui/Badge";
 import { MetricCard } from "@/components/ui/MetricCard";
@@ -106,6 +106,17 @@ export default async function SocietyDetailPage({
           ))}
         </div>
       </Card>
+
+      {/* Compare Link */}
+      {experiments.length >= 2 && (
+        <Link
+          href={`/experiments/compare?societyA=${societyId}&expA=${experiments[0].experimentId}&societyB=${societyId}&expB=${experiments[1].experimentId}`}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--surface-2)] border border-[var(--border)] text-xs text-[var(--text-secondary)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-colors"
+        >
+          <BarChart3 size={14} />
+          Compare latest two experiments
+        </Link>
+      )}
 
       {/* Experiments */}
       <Card hover={false} padding="lg">

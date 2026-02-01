@@ -23,6 +23,7 @@ import { registerTaskTools } from "./tools/task.js";
 import { registerConfigTools } from "./tools/config.js";
 import { registerSwarmTools } from "./tools/swarm.js";
 import { registerSyncTools } from "./tools/sync.js";
+import { registerExperimentTools } from "./tools/experiment.js";
 
 // Create MCP server
 const server = new McpServer({
@@ -42,6 +43,7 @@ registerTaskTools(server);
 registerConfigTools(server);
 registerSwarmTools(server);
 registerSyncTools(server);
+registerExperimentTools(server);
 
 // Start the server
 const transport = new StdioServerTransport();
