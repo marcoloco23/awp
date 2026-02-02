@@ -25,3 +25,21 @@ export { AWP_TOOLS, executeToolCall } from "./tools.js";
 export { ExperimentOrchestrator } from "./orchestrator.js";
 export { MetricsCollector } from "./metrics.js";
 export { SocietyManager, parseManifesto, generateSoulContent } from "./society.js";
+
+// Anti-pattern detection
+export { detectAntiPatterns } from "./anti-patterns.js";
+export type { AntiPatternDetection } from "./anti-patterns.js";
+
+// Statistical comparison
+export {
+  compareExperiments,
+  welchTTest,
+  mannWhitneyU,
+  computeDescriptiveStats,
+} from "./statistics.js";
+export type {
+  ExperimentComparison,
+  MetricComparison,
+  TestResult,
+  DescriptiveStats,
+} from "./statistics.js";

@@ -483,10 +483,11 @@ experiment
 
 experiment
   .command("compare")
-  .description("Compare two experiment results")
+  .description("Compare two experiment results with optional statistical testing")
   .argument("<exp1>", "First experiment (society ID or path to results JSON)")
   .argument("<exp2>", "Second experiment (society ID or path to results JSON)")
   .option("--metric <metric>", "Filter comparison to a specific metric")
+  .option("--statistical", "Run statistical hypothesis tests (auto-enabled for 3+ cycles)")
   .action(experimentCompareCommand);
 
 // awp manifesto
