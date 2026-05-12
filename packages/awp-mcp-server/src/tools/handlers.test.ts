@@ -21,6 +21,7 @@ import { registerTaskTools } from "./task.js";
 import { registerConfigTools } from "./config.js";
 import { registerSwarmTools } from "./swarm.js";
 import { registerSyncTools } from "./sync.js";
+import { registerExperimentTools } from "./experiment.js";
 
 // ---------------------------------------------------------------------------
 // Fake McpServer that captures handlers
@@ -333,6 +334,90 @@ describe("swarm tools", () => {
     const show = await call(handlers, "awp_swarm_show", { slug: "team" });
     expect(show.isError).toBe(false);
   });
+
+  it("role_add + assign + update lifecycle", async () => {
+    const { handlers, server } = createFakeServer();
+    registerSwarmTools(server as never);
+
+    await call(handlers, "awp_swarm_create", { slug: "rt", name: "RT", goal: "x" });
+
+    const add = await call(handlers, "awp_swarm_role_add", {
+      slug: "rt",
+      roleName: "researcher",
+      count: 1,
+      minReputation: { reliability: 0.5 },
+    });
+    expect(add.isError).toBe(false);
+    expect(add.text).toContain("researcher");
+
+    // Cannot add the same role twice
+    const dup = await call(handlers, "awp_swarm_role_add", {
+      slug: "rt",
+      roleName: "researcher",
+      count: 1,
+    });
+    expect(dup.isError).toBe(true);
+
+    const assign = await call(handlers, "awp_swarm_assign", {
+      slug: "rt",
+      role: "researcher",
+      agentDid: "did:awp:alice",
+      agentSlug: "alice",
+    });
+    expect(assign.isError).toBe(false);
+    // Auto-transitions to active when fully staffed
+    expect(assign.text).toMatch(/active|recruiting/);
+
+    // Same agent again → already assigned
+    const again = await call(handlers, "awp_swarm_assign", {
+      slug: "rt",
+      role: "researcher",
+      agentDid: "did:awp:alice",
+      agentSlug: "alice",
+    });
+    expect(again.isError).toBe(true);
+
+    const upd = await call(handlers, "awp_swarm_update", {
+      slug: "rt",
+      status: "completed",
+    });
+    expect(upd.isError).toBe(false);
+    expect(upd.text).toContain("completed");
+  });
+
+  it("recruit returns candidates without auto, auto-assigns with auto=true", async () => {
+    const { handlers, server } = createFakeServer();
+    registerSwarmTools(server as never);
+    registerReputationTools(server as never);
+
+    // Create a qualified candidate
+    await call(handlers, "awp_reputation_signal", {
+      slug: "alice",
+      agentDid: "did:awp:alice",
+      agentName: "Alice",
+      dimension: "reliability",
+      score: 0.95,
+    });
+
+    await call(handlers, "awp_swarm_create", { slug: "rt", name: "RT", goal: "x" });
+    await call(handlers, "awp_swarm_role_add", {
+      slug: "rt",
+      roleName: "researcher",
+      count: 1,
+      minReputation: { reliability: 0.5 },
+    });
+
+    // Without auto — list candidates
+    const candidates = await call(handlers, "awp_swarm_recruit", { slug: "rt", auto: false });
+    expect(candidates.isError).toBe(false);
+    expect(candidates.text).toContain("alice");
+
+    // With auto — actually assign
+    const auto = await call(handlers, "awp_swarm_recruit", { slug: "rt", auto: true });
+    expect(auto.isError).toBe(false);
+    const parsed = JSON.parse(auto.text);
+    expect(parsed.recruited).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -363,5 +448,251 @@ describe("sync tools", () => {
     } finally {
       await rm(target, { recursive: true, force: true });
     }
+  });
+
+  it("pull + diff + status + conflicts work end-to-end", async () => {
+    // Build a remote workspace (peer) with an artifact
+    const peer = join(tmpdir(), `awp-mcp-peer-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    await mkdir(join(peer, ".awp"), { recursive: true });
+    await mkdir(join(peer, "artifacts"), { recursive: true });
+    await writeFile(
+      join(peer, ".awp", "workspace.json"),
+      JSON.stringify({ awp: "1.0.0", name: "peer", id: "urn:awp:workspace:peer", agent: { did: "did:awp:peer" } }),
+    );
+    const now = new Date().toISOString();
+    await writeFile(
+      join(peer, "artifacts", "shared.md"),
+      matter.stringify("\nremote body\n", {
+        awp: "1.0.0",
+        smp: "1.0.0",
+        type: "knowledge-artifact",
+        id: "artifact:shared",
+        title: "Shared",
+        authors: ["did:awp:peer"],
+        version: 1,
+        created: now,
+        lastModified: now,
+        modifiedBy: "did:awp:peer",
+        provenance: [],
+      }),
+    );
+
+    try {
+      const { handlers, server } = createFakeServer();
+      registerSyncTools(server as never);
+
+      await call(handlers, "awp_sync_remote_add", {
+        name: "peer",
+        url: peer,
+        transport: "local-fs",
+      });
+
+      // diff (pull direction) should surface the remote artifact as an import
+      const diff = await call(handlers, "awp_sync_diff", { remote: "peer", direction: "pull" });
+      expect(diff.isError).toBe(false);
+      expect(diff.text).toContain("shared");
+
+      // dry-run pull
+      const dryRun = await call(handlers, "awp_sync_pull", { remote: "peer", dryRun: true });
+      expect(dryRun.isError).toBe(false);
+
+      // real pull
+      const pull = await call(handlers, "awp_sync_pull", { remote: "peer" });
+      expect(pull.isError).toBe(false);
+      const pullResult = JSON.parse(pull.text);
+      expect(pullResult.imported).toContain("shared");
+      await access(join(WS, "artifacts", "shared.md"));
+
+      // push back (no-op since same artifacts, but should not error)
+      const push = await call(handlers, "awp_sync_push", { remote: "peer", dryRun: true });
+      expect(push.isError).toBe(false);
+
+      // status
+      const status = await call(handlers, "awp_sync_status", { remote: "peer" });
+      expect(status.isError).toBe(false);
+      const parsed = JSON.parse(status.text);
+      expect(parsed.remotes[0].name).toBe("peer");
+      expect(parsed.remotes[0].trackedArtifacts).toBeGreaterThan(0);
+
+      // conflicts (none expected)
+      const conflicts = await call(handlers, "awp_sync_conflicts");
+      expect(conflicts.isError).toBe(false);
+      expect(JSON.parse(conflicts.text).conflicts).toEqual([]);
+    } finally {
+      await rm(peer, { recursive: true, force: true });
+    }
+  });
+
+  it("resolve rejects when no conflict exists for the slug", async () => {
+    const { handlers, server } = createFakeServer();
+    registerSyncTools(server as never);
+    // resolveConflict throws if no conflict file exists. Confirm the handler
+    // surfaces the underlying error rather than silently succeeding.
+    await expect(
+      call(handlers, "awp_sync_resolve", { slug: "no-such", mode: "local" }),
+    ).rejects.toThrow(/No conflict/);
+  });
+
+  it("pull_signals imports reputation signals", async () => {
+    const peer = join(tmpdir(), `awp-mcp-peer-sig-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    await mkdir(join(peer, ".awp"), { recursive: true });
+    await mkdir(join(peer, "reputation"), { recursive: true });
+    await writeFile(
+      join(peer, ".awp", "workspace.json"),
+      JSON.stringify({ awp: "1.0.0", name: "peer", id: "urn:awp:workspace:peer", agent: { did: "did:awp:peer" } }),
+    );
+    const now = new Date().toISOString();
+    await writeFile(
+      join(peer, "reputation", "bob.md"),
+      matter.stringify("\nBob.\n", {
+        awp: "1.0.0",
+        rdp: "1.0.0",
+        type: "reputation-profile",
+        id: "reputation:bob",
+        agentDid: "did:awp:bob",
+        agentName: "Bob",
+        lastUpdated: now,
+        dimensions: {},
+        signals: [
+          { source: "did:awp:peer", dimension: "reliability", score: 0.9, timestamp: now },
+        ],
+      }),
+    );
+
+    try {
+      const { handlers, server } = createFakeServer();
+      registerSyncTools(server as never);
+
+      await call(handlers, "awp_sync_remote_add", {
+        name: "peer",
+        url: peer,
+        transport: "local-fs",
+      });
+
+      const result = await call(handlers, "awp_sync_pull_signals", {
+        remote: "peer",
+        since: "1900-01-01T00:00:00Z",
+      });
+      expect(result.isError).toBe(false);
+      const parsed = JSON.parse(result.text);
+      expect(parsed.imported).toBeGreaterThan(0);
+    } finally {
+      await rm(peer, { recursive: true, force: true });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Experiment tools
+// ---------------------------------------------------------------------------
+
+describe("experiment tools", () => {
+  async function seedExperiment(societyId: string, expId: string, overrides: Record<string, unknown> = {}) {
+    const societiesRoot = join(WS, "societies", societyId, "metrics");
+    await mkdir(societiesRoot, { recursive: true });
+    const cycles = Array.from({ length: 3 }, (_, i) => ({
+      cycleNumber: i,
+      startedAt: new Date(Date.now() - (3 - i) * 1000).toISOString(),
+      endedAt: new Date(Date.now() - (3 - i) * 1000 + 500).toISOString(),
+      contractsCreated: [`contract:${i}`],
+      tasksExecuted: [],
+      reputationChanges: [],
+      metrics: {
+        tasksAttempted: 10,
+        tasksSucceeded: 8,
+        tasksFailed: 2,
+        successRate: 0.8 + i * 0.05,
+        totalTokens: 1000 + i * 100,
+        totalDurationMs: 5000,
+        avgTaskDurationMs: 500,
+        antiPatternsDetected: [],
+      },
+    }));
+    const experiment = {
+      experimentId: expId,
+      manifestoId: "manifesto:test",
+      societyId,
+      startedAt: cycles[0].startedAt,
+      endedAt: cycles[cycles.length - 1].endedAt,
+      totalCycles: cycles.length,
+      cycles,
+      finalReputations: {},
+      aggregateMetrics: {
+        totalTasks: 30,
+        totalSuccesses: 24,
+        totalFailures: 6,
+        overallSuccessRate: 0.8,
+        totalTokens: 3300,
+        totalDurationMs: 15000,
+        avgCycleDurationMs: 5000,
+      },
+      successCriteriaResults: [
+        { criterionId: "success-rate", met: true, actualValue: 0.8, threshold: 0.5 },
+      ],
+      ...overrides,
+    };
+    await writeFile(join(societiesRoot, `${expId}.json`), JSON.stringify(experiment, null, 2));
+  }
+
+  it("list + show + metrics for a seeded experiment", async () => {
+    await seedExperiment("soc-a", "exp-1");
+
+    const { handlers, server } = createFakeServer();
+    registerExperimentTools(server as never);
+
+    const list = await call(handlers, "awp_experiment_list", { societyId: "soc-a" });
+    expect(list.isError).toBe(false);
+    const parsed = JSON.parse(list.text);
+    expect(parsed.experiments).toHaveLength(1);
+    expect(parsed.experiments[0].experimentId).toBe("exp-1");
+
+    const show = await call(handlers, "awp_experiment_show", {
+      societyId: "soc-a",
+      experimentId: "exp-1",
+      cycleDetail: true,
+    });
+    expect(show.isError).toBe(false);
+    expect(show.text).toContain("exp-1");
+
+    const metrics = await call(handlers, "awp_experiment_metrics", {
+      societyId: "soc-a",
+      experimentId: "exp-1",
+      metric: "success-rate",
+    });
+    expect(metrics.isError).toBe(false);
+    const out = JSON.parse(metrics.text);
+    expect(out.perCycle).toHaveLength(3);
+    expect(out.stats.mean).toBeGreaterThan(0.7);
+  });
+
+  it("show returns error for missing experiment", async () => {
+    const { handlers, server } = createFakeServer();
+    registerExperimentTools(server as never);
+    const show = await call(handlers, "awp_experiment_show", {
+      societyId: "nope",
+      experimentId: "nope",
+    });
+    expect(show.isError).toBe(true);
+  });
+
+  it("compare returns statistical comparison for two experiments", async () => {
+    await seedExperiment("soc-a", "exp-1");
+    await seedExperiment("soc-b", "exp-2", { manifestoId: "manifesto:other" });
+
+    const { handlers, server } = createFakeServer();
+    registerExperimentTools(server as never);
+
+    const cmp = await call(handlers, "awp_experiment_compare", {
+      societyA: "soc-a",
+      experimentA: "exp-1",
+      societyB: "soc-b",
+      experimentB: "exp-2",
+      test: "t-test",
+    });
+    expect(cmp.isError).toBe(false);
+    const parsed = JSON.parse(cmp.text);
+    expect(parsed.experimentA).toBe("exp-1");
+    expect(parsed.experimentB).toBe("exp-2");
+    expect(parsed.metrics).toBeDefined();
   });
 });
