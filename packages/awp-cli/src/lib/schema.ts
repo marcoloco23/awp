@@ -48,9 +48,8 @@ async function getAjv(): Promise<AjvInstance> {
  * Load a schema file from @agent-workspace/core's bundled schemas
  */
 async function loadSchema(schemaFileName: string): Promise<object> {
-  if (schemaCache.has(schemaFileName)) {
-    return schemaCache.get(schemaFileName)!;
-  }
+  const cached = schemaCache.get(schemaFileName);
+  if (cached) return cached;
 
   const schemaPath = getSchemaPath(schemaFileName);
   const raw = await readFile(schemaPath, "utf-8");

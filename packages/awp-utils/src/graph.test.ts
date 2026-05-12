@@ -40,7 +40,9 @@ describe("topologicalSort", () => {
       t("task:p/b", ["task:p/a"]),
       t("task:p/c", ["task:p/b"]),
     ]);
-    const sorted = topologicalSort(g)!;
+    const sorted = topologicalSort(g);
+    expect(sorted).not.toBeNull();
+    if (!sorted) return;
     expect(sorted.indexOf("task:p/a")).toBeLessThan(sorted.indexOf("task:p/b"));
     expect(sorted.indexOf("task:p/b")).toBeLessThan(sorted.indexOf("task:p/c"));
   });
@@ -55,7 +57,7 @@ describe("topologicalSort", () => {
 
   it("handles isolated nodes", () => {
     const g = buildGraph([t("task:p/a"), t("task:p/b")]);
-    const sorted = topologicalSort(g)!;
+    const sorted = topologicalSort(g);
     expect(sorted).toHaveLength(2);
   });
 });

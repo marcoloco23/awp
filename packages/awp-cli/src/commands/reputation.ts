@@ -181,9 +181,11 @@ export async function reputationSignalCommand(
 
     // Set initial dimension
     if (options.dimension === "domain-competence" && options.domain) {
-      fm.domainCompetence![options.domain] = updateDimension(undefined, scoreNum, now);
+      const domainCompetence = (fm.domainCompetence ??= {});
+      domainCompetence[options.domain] = updateDimension(undefined, scoreNum, now);
     } else {
-      fm.dimensions![options.dimension] = updateDimension(undefined, scoreNum, now);
+      const dimensions = (fm.dimensions ??= {});
+      dimensions[options.dimension] = updateDimension(undefined, scoreNum, now);
     }
 
     const body = `# ${options.agentName} — Reputation Profile\n\nTracked since ${timestamp.split("T")[0]}.`;
@@ -227,8 +229,11 @@ export async function reputationSignalCommand(
     await atomicWriteFile(profile.filePath, content);
   });
   const pfm = profile.frontmatter;
+  const sampleSize =
+    pfm.dimensions?.[options.dimension]?.sampleSize ??
+    (options.domain ? pfm.domainCompetence?.[options.domain]?.sampleSize : undefined);
   console.log(
-    `Updated reputation/${slug}.md — ${options.dimension}${options.domain ? `:${options.domain}` : ""}: ${scoreNum} (sample ${pfm.dimensions?.[options.dimension]?.sampleSize ?? pfm.domainCompetence?.[options.domain!]?.sampleSize})`
+    `Updated reputation/${slug}.md — ${options.dimension}${options.domain ? `:${options.domain}` : ""}: ${scoreNum} (sample ${sampleSize})`
   );
 }
 

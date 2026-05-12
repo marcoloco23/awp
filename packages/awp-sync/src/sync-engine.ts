@@ -41,9 +41,10 @@ export class SyncEngine {
       ]);
 
       // Apply slug filter to local artifacts too
-      const filteredLocal = filter?.slugPattern
+      const slugPattern = filter?.slugPattern;
+      const filteredLocal = slugPattern
         ? localArtifacts.filter((a) => {
-            const pattern = filter.slugPattern!.replace(/\*/g, ".*");
+            const pattern = slugPattern.replace(/\*/g, ".*");
             return new RegExp(`^${pattern}$`).test(a.slug);
           })
         : localArtifacts;
@@ -140,9 +141,10 @@ export class SyncEngine {
         transport.listArtifacts(filter),
       ]);
 
-      const filteredLocal = filter?.slugPattern
+      const slugPattern = filter?.slugPattern;
+      const filteredLocal = slugPattern
         ? localArtifacts.filter((a) => {
-            const pattern = filter.slugPattern!.replace(/\*/g, ".*");
+            const pattern = slugPattern.replace(/\*/g, ".*");
             return new RegExp(`^${pattern}$`).test(a.slug);
           })
         : localArtifacts;

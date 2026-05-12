@@ -70,12 +70,14 @@ export function buildGraph(tasks: TaskNode[]): DependencyGraph {
 
   // Build adjacency lists from blockedBy relationships
   for (const task of tasks) {
+    const incoming = inEdges.get(task.id);
+    if (!incoming) continue;
     for (const dep of task.blockedBy) {
       // Only add edge if both nodes exist in the graph
-      if (nodes.has(dep)) {
-        inEdges.get(task.id)!.add(dep);
-        outEdges.get(dep)!.add(task.id);
-      }
+      const outgoing = outEdges.get(dep);
+      if (!outgoing) continue;
+      incoming.add(dep);
+      outgoing.add(task.id);
     }
   }
 
@@ -108,13 +110,14 @@ export function topologicalSort(graph: DependencyGraph): string[] | null {
   }
 
   while (queue.length > 0) {
-    const current = queue.shift()!;
+    const current = queue.shift();
+    if (current === undefined) break;
     result.push(current);
 
     // Reduce in-degree of dependent tasks
     const dependents = graph.outEdges.get(current) || new Set();
     for (const dep of dependents) {
-      const newDegree = inDegree.get(dep)! - 1;
+      const newDegree = (inDegree.get(dep) ?? 0) - 1;
       inDegree.set(dep, newDegree);
       if (newDegree === 0) {
         queue.push(dep);
@@ -217,8 +220,8 @@ export function findCriticalPath(graph: DependencyGraph): string[] {
   for (const nodeId of sorted) {
     const deps = inEdges.get(nodeId) || new Set();
     for (const dep of deps) {
-      const newDist = dist.get(dep)! + 1;
-      if (newDist > dist.get(nodeId)!) {
+      const newDist = (dist.get(dep) ?? 0) + 1;
+      if (newDist > (dist.get(nodeId) ?? 0)) {
         dist.set(nodeId, newDist);
         prev.set(nodeId, dep);
       }
@@ -267,7 +270,8 @@ export function getBlockedTasks(graph: DependencyGraph): Map<string, string[]> {
   );
 
   for (const [taskId, deps] of inEdges) {
-    const task = nodes.get(taskId)!;
+    const task = nodes.get(taskId);
+    if (!task) continue;
     // Skip already completed/cancelled tasks
     if (task.status === "completed" || task.status === "cancelled") {
       continue;

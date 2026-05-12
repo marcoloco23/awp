@@ -438,8 +438,9 @@ export async function experimentCompareCommand(
     ];
 
     // Filter by specific metric if requested
-    const filteredMetrics = options.metric
-      ? metrics.filter((m) => m.name.toLowerCase().includes(options.metric!.toLowerCase()))
+    const metricFilter = options.metric?.toLowerCase();
+    const filteredMetrics = metricFilter
+      ? metrics.filter((m) => m.name.toLowerCase().includes(metricFilter))
       : metrics;
 
     if (filteredMetrics.length === 0) {

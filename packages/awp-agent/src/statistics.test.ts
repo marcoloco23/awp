@@ -413,11 +413,12 @@ describe("compareExperiments", () => {
     const comparison = compareExperiments(expA, expB);
     const antiPatternMetric = comparison.metrics.find((m) => m.metric === "Anti-Pattern Rate");
     expect(antiPatternMetric).toBeDefined();
+    if (!antiPatternMetric) return;
 
     // B has 0 anti-patterns (better), A has 2 per cycle (worse)
     // If significant, B should win on this metric
-    if (antiPatternMetric!.test.significant) {
-      expect(antiPatternMetric!.a.mean).toBeGreaterThan(antiPatternMetric!.b.mean);
+    if (antiPatternMetric.test.significant) {
+      expect(antiPatternMetric.a.mean).toBeGreaterThan(antiPatternMetric.b.mean);
     }
   });
 });

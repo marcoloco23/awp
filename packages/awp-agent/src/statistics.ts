@@ -203,7 +203,7 @@ export function mannWhitneyU(
   let rankSumA = 0;
   for (let idx = 0; idx < combined.length; idx++) {
     if (combined[idx].group === "a") {
-      rankSumA += ranks.get(idx)!;
+      rankSumA += ranks.get(idx) ?? 0;
     }
   }
 

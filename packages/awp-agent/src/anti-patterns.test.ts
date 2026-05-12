@@ -102,10 +102,10 @@ describe("detectAntiPatterns", () => {
 
       // Create 15 recent artifact files
       const files = Array.from({ length: 15 }, (_, i) => `artifact-${i}.md`);
-      mockedReaddir.mockResolvedValueOnce(files as any);
+      mockedReaddir.mockResolvedValueOnce(files as never);
 
       for (const _ of files) {
-        mockedReadFile.mockResolvedValueOnce(makeArtifactMd(recentTimestamp(2)) as any);
+        mockedReadFile.mockResolvedValueOnce(makeArtifactMd(recentTimestamp(2)) as never);
       }
 
       const detections = await detectAntiPatterns([agent], manifesto);
@@ -125,10 +125,10 @@ describe("detectAntiPatterns", () => {
 
       // Create 5 recent artifact files (below threshold of 10)
       const files = Array.from({ length: 5 }, (_, i) => `artifact-${i}.md`);
-      mockedReaddir.mockResolvedValueOnce(files as any);
+      mockedReaddir.mockResolvedValueOnce(files as never);
 
       for (const _ of files) {
-        mockedReadFile.mockResolvedValueOnce(makeArtifactMd(recentTimestamp(2)) as any);
+        mockedReadFile.mockResolvedValueOnce(makeArtifactMd(recentTimestamp(2)) as never);
       }
 
       const detections = await detectAntiPatterns([agent], manifesto);
@@ -143,10 +143,10 @@ describe("detectAntiPatterns", () => {
 
       // Create 15 artifacts but all are old (48+ hours ago)
       const files = Array.from({ length: 15 }, (_, i) => `artifact-${i}.md`);
-      mockedReaddir.mockResolvedValueOnce(files as any);
+      mockedReaddir.mockResolvedValueOnce(files as never);
 
       for (const _ of files) {
-        mockedReadFile.mockResolvedValueOnce(makeArtifactMd(recentTimestamp(48)) as any);
+        mockedReadFile.mockResolvedValueOnce(makeArtifactMd(recentTimestamp(48)) as never);
       }
 
       const detections = await detectAntiPatterns([agent], manifesto);
@@ -181,7 +181,7 @@ describe("detectAntiPatterns", () => {
           { source: agent.did, score: 0.85, timestamp: recentTimestamp(48) },
           { source: agent.did, score: 0.95, timestamp: recentTimestamp(72) },
           { source: agent.did, score: 0.8, timestamp: recentTimestamp(96) },
-        ]) as any
+        ]) as never
       );
 
       const detections = await detectAntiPatterns([agent], manifesto);
@@ -204,7 +204,7 @@ describe("detectAntiPatterns", () => {
           { source: "did:awp:other-agent-2", score: 0.85, timestamp: recentTimestamp(48) },
           { source: "did:awp:other-agent-3", score: 0.95, timestamp: recentTimestamp(72) },
           { source: "did:awp:other-agent-4", score: 0.8, timestamp: recentTimestamp(96) },
-        ]) as any
+        ]) as never
       );
 
       const detections = await detectAntiPatterns([agent], manifesto);
@@ -224,7 +224,7 @@ describe("detectAntiPatterns", () => {
           { source: agent.did, score: 0.6, timestamp: recentTimestamp(48) },
           { source: agent.did, score: 0.7, timestamp: recentTimestamp(72) },
           { source: agent.did, score: 0.4, timestamp: recentTimestamp(96) },
-        ]) as any
+        ]) as never
       );
 
       const detections = await detectAntiPatterns([agent], manifesto);
@@ -241,11 +241,11 @@ describe("detectAntiPatterns", () => {
 
       // Contracts directory has 4 evaluated contracts, all by same delegator
       const contractFiles = ["c1.md", "c2.md", "c3.md", "c4.md"];
-      mockedReaddir.mockResolvedValueOnce(contractFiles as any);
+      mockedReaddir.mockResolvedValueOnce(contractFiles as never);
 
       for (const _ of contractFiles) {
         mockedReadFile.mockResolvedValueOnce(
-          makeContractMd(agent.did, "did:awp:single-evaluator", "evaluated") as any
+          makeContractMd(agent.did, "did:awp:single-evaluator", "evaluated") as never
         );
       }
 
@@ -264,16 +264,16 @@ describe("detectAntiPatterns", () => {
       ]);
 
       const contractFiles = ["c1.md", "c2.md", "c3.md"];
-      mockedReaddir.mockResolvedValueOnce(contractFiles as any);
+      mockedReaddir.mockResolvedValueOnce(contractFiles as never);
 
       mockedReadFile.mockResolvedValueOnce(
-        makeContractMd(agent.did, "did:awp:evaluator-1", "evaluated") as any
+        makeContractMd(agent.did, "did:awp:evaluator-1", "evaluated") as never
       );
       mockedReadFile.mockResolvedValueOnce(
-        makeContractMd(agent.did, "did:awp:evaluator-2", "evaluated") as any
+        makeContractMd(agent.did, "did:awp:evaluator-2", "evaluated") as never
       );
       mockedReadFile.mockResolvedValueOnce(
-        makeContractMd(agent.did, "did:awp:evaluator-3", "evaluated") as any
+        makeContractMd(agent.did, "did:awp:evaluator-3", "evaluated") as never
       );
 
       const detections = await detectAntiPatterns([agent], manifesto);
@@ -288,11 +288,11 @@ describe("detectAntiPatterns", () => {
 
       // Only 2 contracts (threshold for flag is >= 3)
       const contractFiles = ["c1.md", "c2.md"];
-      mockedReaddir.mockResolvedValueOnce(contractFiles as any);
+      mockedReaddir.mockResolvedValueOnce(contractFiles as never);
 
       for (const _ of contractFiles) {
         mockedReadFile.mockResolvedValueOnce(
-          makeContractMd(agent.did, "did:awp:single-evaluator", "evaluated") as any
+          makeContractMd(agent.did, "did:awp:single-evaluator", "evaluated") as never
         );
       }
 
@@ -307,11 +307,11 @@ describe("detectAntiPatterns", () => {
       const manifesto = makeManifestoWithPatterns([]);
 
       // Mock for artifact-spam detector (readdir on artifacts dir)
-      mockedReaddir.mockResolvedValueOnce([] as any);
+      mockedReaddir.mockResolvedValueOnce([] as never);
       // Mock for self-promotion detector (readFile on reputation file)
       mockedReadFile.mockRejectedValueOnce(new Error("ENOENT"));
       // Mock for coalition-capture detector (readdir on contracts dir)
-      mockedReaddir.mockResolvedValueOnce([] as any);
+      mockedReaddir.mockResolvedValueOnce([] as never);
 
       // Should not throw — uses all 3 default detectors
       const detections = await detectAntiPatterns([agent], manifesto);
@@ -329,16 +329,16 @@ describe("detectAntiPatterns", () => {
 
       // Agent 1: 15 recent artifacts (spam)
       const files1 = Array.from({ length: 15 }, (_, i) => `artifact-${i}.md`);
-      mockedReaddir.mockResolvedValueOnce(files1 as any);
+      mockedReaddir.mockResolvedValueOnce(files1 as never);
       for (const _ of files1) {
-        mockedReadFile.mockResolvedValueOnce(makeArtifactMd(recentTimestamp(2)) as any);
+        mockedReadFile.mockResolvedValueOnce(makeArtifactMd(recentTimestamp(2)) as never);
       }
 
       // Agent 2: 3 recent artifacts (ok)
       const files2 = Array.from({ length: 3 }, (_, i) => `artifact-${i}.md`);
-      mockedReaddir.mockResolvedValueOnce(files2 as any);
+      mockedReaddir.mockResolvedValueOnce(files2 as never);
       for (const _ of files2) {
-        mockedReadFile.mockResolvedValueOnce(makeArtifactMd(recentTimestamp(2)) as any);
+        mockedReadFile.mockResolvedValueOnce(makeArtifactMd(recentTimestamp(2)) as never);
       }
 
       const detections = await detectAntiPatterns([agent1, agent2], manifesto);
@@ -368,9 +368,9 @@ describe("detectAntiPatterns", () => {
       ]);
 
       const files = Array.from({ length: 15 }, (_, i) => `artifact-${i}.md`);
-      mockedReaddir.mockResolvedValueOnce(files as any);
+      mockedReaddir.mockResolvedValueOnce(files as never);
       for (const _ of files) {
-        mockedReadFile.mockResolvedValueOnce(makeArtifactMd(recentTimestamp(2)) as any);
+        mockedReadFile.mockResolvedValueOnce(makeArtifactMd(recentTimestamp(2)) as never);
       }
 
       const detections = await detectAntiPatterns([agent], manifesto);

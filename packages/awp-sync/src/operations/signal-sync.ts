@@ -103,8 +103,12 @@ export async function importSignals(
   const bySubject = new Map<string, ExportedSignal[]>();
   for (const exported of batch.signals) {
     const key = exported.subjectDid;
-    if (!bySubject.has(key)) bySubject.set(key, []);
-    bySubject.get(key)!.push(exported);
+    const existing = bySubject.get(key);
+    if (existing) {
+      existing.push(exported);
+    } else {
+      bySubject.set(key, [exported]);
+    }
   }
 
   let totalImported = 0;

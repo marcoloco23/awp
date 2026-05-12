@@ -102,8 +102,7 @@ describe("SyncEngine", () => {
       const { data } = matter(pulledContent);
       const provenance = data.provenance as Array<{ action: string; syncSource?: string }>;
       const syncEntry = provenance.find((p) => p.action === "synced");
-      expect(syncEntry).toBeDefined();
-      expect(syncEntry!.syncSource).toBeDefined();
+      expect(syncEntry?.syncSource).toBeDefined();
     });
 
     it("returns dry-run results without modifying files", async () => {
@@ -163,8 +162,7 @@ describe("SyncEngine", () => {
 
       expect(entries.length).toBeGreaterThan(0);
       const remoteEntry = entries.find((e) => e.slug === "remote-only");
-      expect(remoteEntry).toBeDefined();
-      expect(remoteEntry!.action).toBe("import");
+      expect(remoteEntry?.action).toBe("import");
     });
   });
 

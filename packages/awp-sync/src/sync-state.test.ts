@@ -155,7 +155,6 @@ describe("computeArtifactDiff", () => {
 
     const diff = computeArtifactDiff(local, remote, emptyState, "pull");
     const remoteOnly = diff.find((d) => d.slug === "remote-only");
-    expect(remoteOnly).toBeDefined();
-    expect(remoteOnly!.action).toBe("import");
+    expect(remoteOnly?.action).toBe("import");
   });
 });

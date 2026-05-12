@@ -51,8 +51,7 @@ describe("addRemote", () => {
     });
 
     const remote = await getRemote(testDir, "upstream");
-    expect(remote).toBeDefined();
-    expect(remote!.transport).toBe("git-remote");
+    expect(remote?.transport).toBe("git-remote");
   });
 });
 
@@ -109,7 +108,6 @@ describe("getRemote", () => {
     });
 
     const remote = await getRemote(testDir, "origin");
-    expect(remote).toBeDefined();
-    expect(remote!.url).toBe("/tmp/workspace");
+    expect(remote?.url).toBe("/tmp/workspace");
   });
 });
