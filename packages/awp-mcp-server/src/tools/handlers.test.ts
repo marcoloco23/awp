@@ -143,6 +143,49 @@ describe("memory tools", () => {
     expect(read.isError).toBe(false);
     expect(read.text).toContain("first entry");
   });
+
+  it("awp_read_memory target=longterm reports missing gracefully", async () => {
+    const { handlers, server } = createFakeServer();
+    registerMemoryTools(server as never);
+    const r = await call(handlers, "awp_read_memory", { target: "longterm" });
+    expect(r.isError).toBe(false);
+    expect(r.text.toLowerCase()).toContain("no long-term");
+  });
+
+  it("awp_read_memory target=longterm returns content when MEMORY.md exists", async () => {
+    const { handlers, server } = createFakeServer();
+    registerMemoryTools(server as never);
+    await writeFile(
+      join(WS, "MEMORY.md"),
+      matter.stringify("\n# Long-term\n\nPersistent.\n", {
+        awp: "1.0.0",
+        type: "memory-longterm",
+        lastUpdated: new Date().toISOString(),
+      }),
+    );
+    const r = await call(handlers, "awp_read_memory", { target: "longterm" });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain("Persistent");
+  });
+
+  it("awp_read_memory target=recent reports missing dir gracefully", async () => {
+    const { handlers, server } = createFakeServer();
+    registerMemoryTools(server as never);
+    // memory dir not created — should respond, not throw
+    const r = await call(handlers, "awp_read_memory", { target: "recent" });
+    expect(r.isError).toBe(false);
+    expect(r.text.toLowerCase()).toContain("no");
+  });
+
+  it("awp_read_memory target=<specific date> returns the right file", async () => {
+    const { handlers, server } = createFakeServer();
+    registerMemoryTools(server as never);
+    await call(handlers, "awp_write_memory", { content: "today's entry" });
+    const today = new Date().toISOString().split("T")[0];
+    const r = await call(handlers, "awp_read_memory", { target: today });
+    expect(r.isError).toBe(false);
+    expect(r.text).toContain("today's entry");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -150,6 +193,68 @@ describe("memory tools", () => {
 // ---------------------------------------------------------------------------
 
 describe("artifact tools", () => {
+  it("merge (additive) combines body and tags from source into target", async () => {
+    const { handlers, server } = createFakeServer();
+    registerArtifactTools(server as never);
+
+    await call(handlers, "awp_artifact_write", {
+      slug: "target",
+      title: "Target",
+      content: "Target body.",
+      tags: ["base"],
+    });
+    await call(handlers, "awp_artifact_write", {
+      slug: "source",
+      title: "Source",
+      content: "Source body.",
+      tags: ["extra"],
+    });
+    const result = await call(handlers, "awp_artifact_merge", {
+      targetSlug: "target",
+      sourceSlug: "source",
+      strategy: "additive",
+      message: "Merged source",
+    });
+    expect(result.isError).toBe(false);
+
+    const read = JSON.parse((await call(handlers, "awp_artifact_read", { slug: "target" })).text);
+    expect(read.body).toContain("Source body.");
+    expect(read.frontmatter.tags).toContain("base");
+    expect(read.frontmatter.tags).toContain("extra");
+    expect(read.frontmatter.version).toBeGreaterThan(1);
+  });
+
+  it("merge rejects unknown strategy", async () => {
+    const { handlers, server } = createFakeServer();
+    registerArtifactTools(server as never);
+    await call(handlers, "awp_artifact_write", { slug: "t", title: "T", content: "T" });
+    await call(handlers, "awp_artifact_write", { slug: "s", title: "S", content: "S" });
+    const result = await call(handlers, "awp_artifact_merge", {
+      targetSlug: "t",
+      sourceSlug: "s",
+      strategy: "bogus",
+    });
+    expect(result.isError).toBe(true);
+    expect(result.text).toContain("Unknown strategy");
+  });
+
+  it("merge returns isError when target or source missing", async () => {
+    const { handlers, server } = createFakeServer();
+    registerArtifactTools(server as never);
+    const noTarget = await call(handlers, "awp_artifact_merge", {
+      targetSlug: "missing-target",
+      sourceSlug: "anything",
+    });
+    expect(noTarget.isError).toBe(true);
+
+    await call(handlers, "awp_artifact_write", { slug: "exists", title: "X", content: "X" });
+    const noSource = await call(handlers, "awp_artifact_merge", {
+      targetSlug: "exists",
+      sourceSlug: "missing-source",
+    });
+    expect(noSource.isError).toBe(true);
+  });
+
   it("write + list + read + search round-trip", async () => {
     const { handlers, server } = createFakeServer();
     registerArtifactTools(server as never);

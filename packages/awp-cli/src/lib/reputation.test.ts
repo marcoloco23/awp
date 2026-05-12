@@ -1,10 +1,16 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { mkdir, writeFile, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import matter from "gray-matter";
 import {
   validateSlug,
   slugToProfilePath,
   computeDecayedScore,
   updateDimension,
   computeConfidence,
+  loadProfile,
+  listProfiles,
   DEFAULT_ALPHA,
   DEFAULT_DECAY_RATE,
   SCORE_FLOOR,
@@ -141,5 +147,61 @@ describe("reputation utilities", () => {
       expect(DEFAULT_DECAY_RATE).toBe(0.02);
       expect(SCORE_FLOOR).toBe(0.5);
     });
+  });
+});
+
+describe("loadProfile + listProfiles", () => {
+  let root: string;
+
+  beforeEach(async () => {
+    root = join(tmpdir(), `awp-cli-rep-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    await mkdir(join(root, "reputation"), { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  function buildProfile(slug: string): string {
+    const now = new Date().toISOString();
+    return matter.stringify(`\n# Profile\n`, {
+      awp: "1.0.0",
+      rdp: "1.0.0",
+      type: "reputation-profile",
+      id: `reputation:${slug}`,
+      agentDid: `did:awp:${slug}`,
+      agentName: slug,
+      lastUpdated: now,
+      dimensions: {},
+      domainCompetence: {},
+      signals: [],
+    });
+  }
+
+  it("loadProfile returns the parsed profile", async () => {
+    await writeFile(join(root, "reputation", "alice.md"), buildProfile("alice"));
+    const p = await loadProfile(root, "alice");
+    expect(p.frontmatter.agentDid).toBe("did:awp:alice");
+  });
+
+  it("loadProfile throws for missing slug", async () => {
+    await expect(loadProfile(root, "no-such")).rejects.toThrow();
+  });
+
+  it("listProfiles returns empty when reputation dir missing", async () => {
+    await rm(join(root, "reputation"), { recursive: true });
+    expect(await listProfiles(root)).toEqual([]);
+  });
+
+  it("listProfiles ignores non-reputation files and unparseable files", async () => {
+    await writeFile(join(root, "reputation", "alice.md"), buildProfile("alice"));
+    await writeFile(
+      join(root, "reputation", "note.md"),
+      matter.stringify("# Note\n", { awp: "1.0.0", type: "other" }),
+    );
+    await writeFile(join(root, "reputation", "broken.md"), "not yaml ---\n");
+    const list = await listProfiles(root);
+    expect(list).toHaveLength(1);
+    expect(list[0].frontmatter.agentDid).toBe("did:awp:alice");
   });
 });
