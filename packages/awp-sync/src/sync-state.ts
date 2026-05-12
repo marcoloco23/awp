@@ -11,7 +11,6 @@ import { SYNC_STATE_DIR } from "@agent-workspace/core";
 import { safeWriteJson, loadJsonFile, withFileLock } from "@agent-workspace/utils";
 import type {
   SyncState,
-  ArtifactSyncWatermark,
   SyncDiffEntry,
   RemoteArtifactManifest,
 } from "./types.js";

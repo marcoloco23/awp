@@ -1,5 +1,5 @@
 import { writeFile } from "node:fs/promises";
-import { AWP_VERSION, CDP_VERSION, SWARMS_DIR } from "@agent-workspace/core";
+import { AWP_VERSION, CDP_VERSION } from "@agent-workspace/core";
 import type { SwarmFrontmatter, SwarmRole } from "@agent-workspace/core";
 import {
   findCandidatesForRole,
@@ -16,7 +16,6 @@ import {
   listSwarms,
   ensureSwarmsDir,
 } from "../lib/swarm.js";
-import { join } from "node:path";
 import { access } from "node:fs/promises";
 
 async function fileExists(path: string): Promise<boolean> {

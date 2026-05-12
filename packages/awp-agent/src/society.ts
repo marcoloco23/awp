@@ -5,7 +5,7 @@
  * operating under a shared manifesto.
  */
 
-import { mkdir, writeFile, readFile, readdir, cp } from "node:fs/promises";
+import { mkdir, writeFile, readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import matter from "gray-matter";
 import { AWP_VERSION, MANIFEST_PATH } from "@agent-workspace/core";

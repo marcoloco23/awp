@@ -1,5 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { readFile, readdir, access } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import * as z from "zod";
 import { getWorkspaceRoot } from "@agent-workspace/utils";
@@ -15,15 +15,6 @@ const SOCIETIES_DIR = "societies";
 
 function getSocietiesRoot(): string {
   return process.env.AWP_SOCIETIES || join(getWorkspaceRoot(), SOCIETIES_DIR);
-}
-
-async function fileExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 async function loadExperiment(

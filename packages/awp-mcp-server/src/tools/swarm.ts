@@ -7,7 +7,6 @@ import { AWP_VERSION, CDP_VERSION, SWARMS_DIR, REPUTATION_DIR } from "@agent-wor
 import type { SwarmRole, ReputationProfileFrontmatter } from "@agent-workspace/core";
 import {
   getWorkspaceRoot,
-  getAgentDid,
   findCandidatesForRole,
   autoRecruitSwarm,
   getSwarmStaffingSummary,

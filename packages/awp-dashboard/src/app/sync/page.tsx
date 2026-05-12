@@ -1,4 +1,4 @@
-import { RefreshCw, Globe, AlertTriangle, BookOpen, Shield } from "lucide-react";
+import { Globe, AlertTriangle, BookOpen, Shield } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge, StatusBadge } from "@/components/ui/Badge";
 import { MetricCard } from "@/components/ui/MetricCard";

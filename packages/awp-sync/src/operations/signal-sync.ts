@@ -9,7 +9,7 @@ import { readFile, readdir, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import matter from "gray-matter";
 import { REPUTATION_DIR, MANIFEST_PATH } from "@agent-workspace/core";
-import { atomicWriteFile, withFileLock, loadJsonFile, updateDimension } from "@agent-workspace/utils";
+import { atomicWriteFile, withFileLock, loadJsonFile, updateDimension, stripUndefined } from "@agent-workspace/utils";
 import type { ReputationDimension } from "@agent-workspace/core";
 import type { ExportedSignalBatch, ExportedSignal } from "../types.js";
 
@@ -206,7 +206,7 @@ async function updateExistingProfile(
     data.signals = existingSignals;
     data.lastUpdated = new Date().toISOString();
 
-    const output = matter.stringify(content, data);
+    const output = matter.stringify(content, stripUndefined(data) as Record<string, unknown>);
     await atomicWriteFile(profilePath, output);
   });
 
@@ -258,7 +258,7 @@ async function createProfileWithSignals(
   }
 
   const content = `\n# Reputation Profile: ${firstSignal.subjectName}\n\nSynced reputation profile.\n`;
-  const output = matter.stringify(content, data);
+  const output = matter.stringify(content, stripUndefined(data) as Record<string, unknown>);
   await atomicWriteFile(profilePath, output);
 
   return imported;

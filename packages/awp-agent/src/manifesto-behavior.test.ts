@@ -91,7 +91,7 @@ const MARKET_MANIFESTO: ManifestoConfig = {
 // Helper to create mock TaskResult
 // ─────────────────────────────────────────────────────────────────────────────
 
-function mockTaskResult(overrides: Partial<TaskResult> & { toolCalls?: ToolCall[] }): TaskResult {
+function _mockTaskResult(overrides: Partial<TaskResult> & { toolCalls?: ToolCall[] }): TaskResult {
   return {
     success: true,
     toolCalls: [],
@@ -101,7 +101,7 @@ function mockTaskResult(overrides: Partial<TaskResult> & { toolCalls?: ToolCall[
   };
 }
 
-function mockToolCall(name: string, args: Record<string, unknown> = {}): ToolCall {
+function _mockToolCall(name: string, args: Record<string, unknown> = {}): ToolCall {
   return {
     id: `call-${Math.random().toString(36).slice(2)}`,
     name,

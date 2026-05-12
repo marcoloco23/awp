@@ -4,7 +4,7 @@ import { join } from "node:path";
 import matter from "gray-matter";
 import * as z from "zod";
 import { AWP_VERSION, SMP_VERSION, ARTIFACTS_DIR, REPUTATION_DIR } from "@agent-workspace/core";
-import { getWorkspaceRoot, getAgentDid, computeDecayedScore } from "@agent-workspace/utils";
+import { getWorkspaceRoot, getAgentDid, computeDecayedScore, stripUndefined } from "@agent-workspace/utils";
 import type { ReputationDimension } from "@agent-workspace/core";
 
 /**
@@ -117,7 +117,7 @@ export function registerArtifactTools(server: McpServer): void {
             .join(" ");
 
         fileData = {
-          data: {
+          data: stripUndefined({
             awp: AWP_VERSION,
             smp: SMP_VERSION,
             type: "knowledge-artifact",
@@ -138,12 +138,12 @@ export function registerArtifactTools(server: McpServer): void {
                 message,
               },
             ],
-          },
+          }) as Record<string, unknown>,
           content: `\n${bodyContent}\n`,
         };
       }
 
-      const output = matter.stringify(fileData.content, fileData.data);
+      const output = matter.stringify(fileData.content, stripUndefined(fileData.data) as Record<string, unknown>);
       await writeFile(filePath, output, "utf-8");
 
       return {
@@ -456,7 +456,7 @@ export function registerArtifactTools(server: McpServer): void {
         confidence: tfm.confidence,
       });
 
-      const output = matter.stringify(target.content, tfm);
+      const output = matter.stringify(target.content, stripUndefined(tfm) as Record<string, unknown>);
       await writeFile(join(root, ARTIFACTS_DIR, `${targetSlug}.md`), output, "utf-8");
 
       return {

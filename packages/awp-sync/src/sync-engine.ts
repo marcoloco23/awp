@@ -14,7 +14,7 @@ import { loadSyncState, saveSyncState, computeArtifactDiff } from "./sync-state.
 import { createTransport } from "./transport/index.js";
 import { scanLocalArtifacts, pullArtifacts, pushArtifacts, buildFilter } from "./operations/artifact-sync.js";
 import { exportSignals, importSignals } from "./operations/signal-sync.js";
-import type { SyncResult, SyncDiffEntry, SyncOptions, SyncTransport } from "./types.js";
+import type { SyncResult, SyncDiffEntry, SyncOptions } from "./types.js";
 
 export class SyncEngine {
   constructor(private readonly workspace: string) {}

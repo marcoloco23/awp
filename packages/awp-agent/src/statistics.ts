@@ -5,7 +5,7 @@
  * across different manifesto configurations.
  */
 
-import type { ExperimentResult, CycleResult, AgentReputation } from "./types.js";
+import type { ExperimentResult } from "./types.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types

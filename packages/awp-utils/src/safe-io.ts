@@ -5,7 +5,7 @@
  * detection, backup rotation, and safe JSON helpers.
  */
 
-import { mkdir, writeFile, readFile, rename, copyFile, unlink, chmod, open, rm } from "node:fs/promises";
+import { mkdir, writeFile, readFile, rename, copyFile, unlink, open, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, basename, join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";

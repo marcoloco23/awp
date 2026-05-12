@@ -263,7 +263,7 @@ export class MetricsCollector {
       for (const criterion of manifesto.successCriteria) {
         // Simplified evaluation — in production, implement proper metric evaluation
         let actualValue = 0;
-        let threshold = criterion.threshold || 0;
+        const threshold = criterion.threshold || 0;
         let met = false;
 
         switch (criterion.id) {

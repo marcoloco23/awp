@@ -5,7 +5,7 @@
  * and collects metrics.
  */
 
-import { readFile, mkdir, readdir } from "node:fs/promises";
+import { readFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import matter from "gray-matter";
 import { AWP_VERSION, RDP_VERSION, CONTRACTS_DIR, REPUTATION_DIR } from "@agent-workspace/core";
@@ -109,7 +109,6 @@ export class ExperimentOrchestrator {
     // Collect initial reputations
     const reputations: Record<string, Awaited<ReturnType<AgentAdapter["getReputation"]>>> = {};
     for (const agent of this.agents) {
-      const identity = await agent.getIdentity();
       reputations[agent.id] = await agent.getReputation();
       this.metrics.updateReputation(agent.id, reputations[agent.id]);
     }
@@ -407,7 +406,6 @@ Active — awaiting completion.
    */
   private scoreEpistemicHygiene(result: TaskResult): number {
     let score = 0.5; // baseline
-    let signals = 0;
 
     // Check artifact writes for confidence scores
     const artifactWrites = result.toolCalls.filter((tc) => tc.name === "awp_artifact_write");
@@ -415,7 +413,6 @@ Active — awaiting completion.
       for (const write of artifactWrites) {
         const confidence = write.arguments?.confidence as number | undefined;
         if (confidence !== undefined) {
-          signals++;
           // Reward moderate confidence, penalize overconfidence
           if (confidence >= 0.4 && confidence <= 0.7) {
             score += 0.15; // well-calibrated
@@ -428,7 +425,6 @@ Active — awaiting completion.
           }
         } else {
           // No confidence score at all — slight penalty
-          signals++;
           score -= 0.05;
         }
       }
@@ -451,11 +447,9 @@ Active — awaiting completion.
 
     if (hedgeCount > 0) {
       score += Math.min(hedgeCount * 0.03, 0.12);
-      signals++;
     }
     if (overconfidenceCount > 0) {
       score -= Math.min(overconfidenceCount * 0.03, 0.1);
-      signals++;
     }
 
     // Clamp and add noise

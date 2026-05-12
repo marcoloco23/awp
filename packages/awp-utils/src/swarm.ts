@@ -6,7 +6,6 @@ import type {
   SwarmRole,
   SwarmFrontmatter,
   ReputationProfileFrontmatter,
-  ReputationDimension,
 } from "@agent-workspace/core";
 import { computeDecayedScore } from "./reputation.js";
 

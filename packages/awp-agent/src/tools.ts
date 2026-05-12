@@ -11,14 +11,12 @@ import matter from "gray-matter";
 import {
   AWP_VERSION,
   SMP_VERSION,
-  RDP_VERSION,
   ARTIFACTS_DIR,
   CONTRACTS_DIR,
   REPUTATION_DIR,
 } from "@agent-workspace/core";
-import { getAgentDid, updateDimension, atomicWriteFile, withFileLock } from "@agent-workspace/utils";
-import type { ReputationDimension, ReputationSignal } from "@agent-workspace/core";
-import type { ToolDefinition, ToolCall } from "./types.js";
+import { getAgentDid, atomicWriteFile, withFileLock, stripUndefined } from "@agent-workspace/utils";
+import type { ToolDefinition } from "./types.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tool Definitions
@@ -366,7 +364,7 @@ async function executeArtifactWrite(
       };
     }
 
-    const output = matter.stringify(fileData.content, fileData.data);
+    const output = matter.stringify(fileData.content, stripUndefined(fileData.data) as Record<string, unknown>);
     await atomicWriteFile(filePath, output);
 
     return {

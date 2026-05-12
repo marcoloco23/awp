@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, FlaskConical, Target, Cpu, Zap, Trophy, BarChart3 } from "lucide-react";
+import { ArrowLeft, FlaskConical, Target, Trophy, BarChart3 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { MetricCard } from "@/components/ui/MetricCard";
@@ -76,16 +76,6 @@ export default async function ExperimentComparePage({
     effectSize: m.test.effectSize,
     effectLabel: m.test.effectLabel,
   }));
-
-  const winnerLabel =
-    summary.winner === "tie"
-      ? "Tie"
-      : summary.winner === "A"
-        ? comparison.experimentA
-        : comparison.experimentB;
-
-  const winnerVariant: "success" | "info" | "muted" =
-    summary.winner === "tie" ? "muted" : "success";
 
   return (
     <div className="space-y-6 max-w-5xl">

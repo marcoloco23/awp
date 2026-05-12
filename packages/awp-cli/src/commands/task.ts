@@ -440,7 +440,6 @@ export async function taskGraphCommand(
     for (const [taskId, blockers] of analysis.blocked) {
       const slug = getTaskSlug(taskId);
       const blockerSlugs = blockers.map((b) => getTaskSlug(b));
-      const task = tasks.find((t) => t.frontmatter.id === taskId);
       const blockerStatuses = blockers.map((b) => {
         const blocker = tasks.find((t) => t.frontmatter.id === b);
         return blocker?.frontmatter.status || "unknown";

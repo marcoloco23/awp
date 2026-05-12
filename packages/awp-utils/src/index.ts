@@ -36,6 +36,7 @@ export {
   serializeWorkspaceFile,
   writeWorkspaceFile,
   getFrontmatterType,
+  stripUndefined,
 } from "./frontmatter.js";
 
 // Workspace utilities

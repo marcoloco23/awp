@@ -4,13 +4,13 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["**/src/**/*.test.ts"],
-    exclude: ["packages/awp-dashboard/**", "node_modules/**"],
+    include: ["packages/*/src/**/*.test.ts"],
+    exclude: ["packages/awp-dashboard/**", "**/node_modules/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
-      include: ["**/src/**/*.ts"],
-      exclude: ["**/src/**/*.test.ts"],
+      include: ["packages/*/src/**/*.ts"],
+      exclude: ["packages/*/src/**/*.test.ts", "**/node_modules/**"],
     },
   },
 });

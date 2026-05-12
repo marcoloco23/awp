@@ -119,11 +119,11 @@ export function registerMemoryTools(server: McpServer): void {
       const time = new Date().toTimeString().slice(0, 5);
       const filePath = join(memDir, `${date}.md`);
 
-      const entry = {
+      const entry: { time: string; content: string; tags?: string[] } = {
         time,
         content: entryContent,
-        tags: tags?.length ? tags : undefined,
       };
+      if (tags?.length) entry.tags = tags;
 
       let fileData: { data: Record<string, unknown>; content: string };
 

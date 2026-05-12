@@ -27,8 +27,10 @@ export async function memoryLogCommand(message: string, options: { tags?: string
   const entry: MemoryEntry = {
     time: currentTime(),
     content: message,
-    tags: tags.length ? tags : undefined,
   };
+  if (tags.length) {
+    entry.tags = tags;
+  }
 
   let file: { frontmatter: MemoryDailyFrontmatter; body: string; filePath: string };
 
