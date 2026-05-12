@@ -62,7 +62,7 @@ cd /path/to/awp
 source .env && export OPENAI_API_KEY
 
 # Create a society of agents
-awp experiment society create --manifesto MANIFESTO.md --agents 3 --seed 42
+awp experiment society create --manifesto docs/MANIFESTO.md --agents 3 --seed 42
 
 # Note the society ID from output (e.g., manifesto-awp-purification-v1-xxx)
 
@@ -70,7 +70,7 @@ awp experiment society create --manifesto MANIFESTO.md --agents 3 --seed 42
 awp experiment run \
   --society manifesto-awp-purification-v1-xxx \
   --cycles 3 \
-  --manifesto MANIFESTO.md
+  --manifesto docs/MANIFESTO.md
 
 # View results
 awp experiment show manifesto-awp-purification-v1-xxx

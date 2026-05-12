@@ -51,6 +51,8 @@ awp identity generate
 awp identity export
 ```
 
+Going deeper: [docs/QUICKSTART.md](docs/QUICKSTART.md), [docs/PLAN.md](docs/PLAN.md), [docs/MANIFESTO.md](docs/MANIFESTO.md). Protocol spec: [spec/](spec/).
+
 ## Why AWP?
 
 A2A owns transport. MCP owns tools. ACK owns payments. **Nobody owns the definition of the agent itself.**
@@ -252,13 +254,13 @@ Run manifesto-driven experiments with multi-agent societies:
 
 ```bash
 # Create a society of 3 agents
-awp experiment society create --manifesto MANIFESTO.md --agents 3 --seed 42
+awp experiment society create --manifesto docs/MANIFESTO.md --agents 3 --seed 42
 
 # Run 5 cycles
-awp experiment run --society manifesto-xxx-123 --cycles 5 --manifesto MANIFESTO.md
+awp experiment run --society manifesto-xxx-123 --cycles 5 --manifesto docs/MANIFESTO.md
 
 # Use Anthropic instead of OpenAI
-awp experiment run --society manifesto-xxx-123 --cycles 5 --manifesto MANIFESTO.md --provider anthropic
+awp experiment run --society manifesto-xxx-123 --cycles 5 --manifesto docs/MANIFESTO.md --provider anthropic
 
 # List all societies
 awp experiment list

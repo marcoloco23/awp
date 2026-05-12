@@ -197,4 +197,4 @@ npm run build
 - [AWP Specification](https://github.com/marcoloco23/awp/blob/main/spec/awp-spec.md)
 - [Experiment Protocol](https://github.com/marcoloco23/awp/blob/main/spec/experiment/experiment-spec.md)
 - [AgentAdapter Interface](https://github.com/marcoloco23/awp/blob/main/packages/awp-agent/AGENT_ADAPTER.md)
-- [MANIFESTO.md](https://github.com/marcoloco23/awp/blob/main/MANIFESTO.md)
+- [MANIFESTO.md](https://github.com/marcoloco23/awp/blob/main/docs/MANIFESTO.md)

@@ -268,11 +268,17 @@ awp experiment create|run|show|compare|export
 
 ```
 awp/                           # Public repo: github.com/marcoloco23/awp
-  PLAN.md                      ← you are here
+  README.md
   package.json                 # Monorepo root (npm workspaces + Turborepo)
   turbo.json
   tsconfig.base.json
   .gitignore
+
+  docs/
+    PLAN.md                    ← you are here
+    QUICKSTART.md
+    MANIFESTO.md
+    MANIFESTO-MARKET.md
 
   spec/
     awp-spec.md                # Phase 1: Core specification ✅
