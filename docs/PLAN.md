@@ -1,5 +1,9 @@
 # AWP — Coordination Infrastructure for the Agent Economy
 
+> **Looking for the time-bound execution plan?** See
+> [`ROADMAP.md`](./ROADMAP.md) for the 3-year roadmap (May 2026 → May 2029).
+> This document covers phase architecture and what's already built.
+
 ## Thesis
 
 Build the operating system for an agent economy, not another app inside it.

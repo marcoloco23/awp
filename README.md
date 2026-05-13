@@ -51,7 +51,7 @@ awp identity generate
 awp identity export
 ```
 
-Going deeper: [docs/QUICKSTART.md](docs/QUICKSTART.md), [docs/PLAN.md](docs/PLAN.md), [docs/MANIFESTO.md](docs/MANIFESTO.md). Protocol spec: [spec/](spec/).
+Going deeper: [docs/QUICKSTART.md](docs/QUICKSTART.md), [docs/PLAN.md](docs/PLAN.md), [docs/ROADMAP.md](docs/ROADMAP.md), [docs/MANIFESTO.md](docs/MANIFESTO.md). Protocol spec: [spec/](spec/).
 
 ## Why AWP?
 
