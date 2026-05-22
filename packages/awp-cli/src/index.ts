@@ -47,6 +47,25 @@ import {
   swarmListCommand,
   swarmUpdateCommand,
 } from "./commands/swarm.js";
+import {
+  orgCreateCommand,
+  orgShowCommand,
+  orgListCommand,
+  orgTreeCommand,
+  orgUpdateCommand,
+  orgMemberAddCommand,
+  orgMemberRemoveCommand,
+  orgCapabilityGrantCommand,
+  orgCapabilityRevokeCommand,
+  orgCapabilityResolveCommand,
+  orgBudgetSetCommand,
+  orgBudgetReportCommand,
+  orgAuthoritySetCommand,
+  orgEscalationSetCommand,
+  orgKpiSetCommand,
+  orgEscalateCommand,
+  orgValidateCommand,
+} from "./commands/org.js";
 import { statusCommand } from "./commands/status.js";
 import { dashboardCommand } from "./commands/dashboard.js";
 import {
@@ -422,6 +441,171 @@ swarm
   .argument("<slug>", "Swarm slug")
   .option("--status <state>", "New status (recruiting, active, completed, disbanded)")
   .action(swarmUpdateCommand);
+
+// awp org
+const org = program
+  .command("org")
+  .description("Machine organization operations — recursive org charts (OGP)");
+
+org
+  .command("create")
+  .description("Create a new organization unit")
+  .argument("<slug>", "Organization slug (e.g., acme, engineering)")
+  .option("-n, --name <name>", "Organization name")
+  .option("-k, --kind <kind>", "Unit kind (org, division, team)", "team")
+  .option("-m, --mission <mission>", "One-line mission")
+  .option("-p, --parent <slug>", "Parent organization slug")
+  .option("--accountable <did>", "Accountable agent DID (defaults to workspace agent)")
+  .option("--human-owner <id>", "Human owner user ID (e.g., user:marc)")
+  .action(orgCreateCommand);
+
+org
+  .command("show")
+  .description("Show organization details — members, capabilities, budget, KPIs")
+  .argument("<slug>", "Organization slug")
+  .action(orgShowCommand);
+
+org
+  .command("list")
+  .description("List organizations")
+  .option("--status <state>", "Filter by status (forming, active, paused, dissolved)")
+  .option("--kind <kind>", "Filter by kind (org, division, team)")
+  .option("--parent <slug>", "Filter by parent organization slug")
+  .action(orgListCommand);
+
+org
+  .command("tree")
+  .description("Render the org chart as an ASCII tree")
+  .argument("[slug]", "Subtree root slug (defaults to the workspace root org)")
+  .action(orgTreeCommand);
+
+org
+  .command("update")
+  .description("Update organization fields")
+  .argument("<slug>", "Organization slug")
+  .option("--status <state>", "New status (forming, active, paused, dissolved)")
+  .option("--mission <mission>", "New mission")
+  .option("--accountable <did>", "New accountable agent DID")
+  .option("--human-owner <id>", "New human owner user ID")
+  .action(orgUpdateCommand);
+
+org
+  .command("validate")
+  .description("Check org-chart structural integrity (roots, cycles, drift, invariants)")
+  .action(orgValidateCommand);
+
+org
+  .command("escalate")
+  .description("Show the escalation path up to the accountable human owner")
+  .argument("<slug>", "Organization slug")
+  .action(orgEscalateCommand);
+
+const orgMember = org.command("member").description("Manage organization members");
+
+orgMember
+  .command("add")
+  .description("Add a member agent to an organization")
+  .argument("<slug>", "Organization slug")
+  .argument("<did>", "Member agent DID")
+  .option("-r, --role <role>", "Role within the unit", "contributor")
+  .option("--rep-slug <slug>", "Reputation profile slug")
+  .option("--seat <seat>", "Accountability seat (accountable, contributor, tool)")
+  .option(
+    "--min-reputation <spec...>",
+    "Reputation gate (dimension:score or domain-competence:domain:score)",
+  )
+  .action(orgMemberAddCommand);
+
+orgMember
+  .command("remove")
+  .description("Remove a member agent from an organization")
+  .argument("<slug>", "Organization slug")
+  .argument("<did>", "Member agent DID")
+  .action(orgMemberRemoveCommand);
+
+const orgCapability = org
+  .command("capability")
+  .description("Manage organization capability scope");
+
+orgCapability
+  .command("grant")
+  .description("Grant a capability to an organization")
+  .argument("<slug>", "Organization slug")
+  .argument("<name>", "Capability name (e.g., deploy:production)")
+  .option("-d, --description <text>", "Capability description")
+  .option("--irreversible", "Mark the action as irreversible (forces requires-approval)")
+  .option("--requires-approval", "Require human approval for each use")
+  .option("--approver <id>", "Approver user ID")
+  .action(orgCapabilityGrantCommand);
+
+orgCapability
+  .command("revoke")
+  .description("Revoke a capability from an organization")
+  .argument("<slug>", "Organization slug")
+  .argument("<name>", "Capability name")
+  .action(orgCapabilityRevokeCommand);
+
+orgCapability
+  .command("resolve")
+  .description("Show effective capabilities (own + inherited from ancestors)")
+  .argument("<slug>", "Organization slug")
+  .action(orgCapabilityResolveCommand);
+
+const orgBudget = org.command("budget").description("Manage organization budgets");
+
+orgBudget
+  .command("set")
+  .description("Set an organization's budget allocation and/or recorded consumption")
+  .argument("<slug>", "Organization slug")
+  .option("--tokens <n>", "Token allocation")
+  .option("--tool-calls <n>", "Tool-call allocation")
+  .option("--spend <n>", "Spend allocation")
+  .option("--used-tokens <n>", "Recorded token consumption")
+  .option("--used-tool-calls <n>", "Recorded tool-call consumption")
+  .option("--used-spend <n>", "Recorded spend consumption")
+  .option("--currency <currency>", "Accounting currency")
+  .option("--period <period>", "Accounting window (one-time, daily, monthly)")
+  .action(orgBudgetSetCommand);
+
+orgBudget
+  .command("report")
+  .description("Report budget allocation vs subtree consumption")
+  .argument("[slug]", "Subtree root slug (defaults to the workspace root org)")
+  .action(orgBudgetReportCommand);
+
+org
+  .command("authority")
+  .description("Set an organization's spawn authority")
+  .argument("<slug>", "Organization slug")
+  .option("--can-spawn <kinds>", "Comma-separated kinds this unit may spawn (org,division,team)")
+  .option("--max-children <n>", "Cap on direct children")
+  .option("--max-depth <n>", "Maximum absolute tree depth for descendants")
+  .option("--can-recruit <bool>", "Whether the unit may recruit members (true/false)")
+  .action(orgAuthoritySetCommand);
+
+org
+  .command("escalation")
+  .description("Set an organization's escalation config")
+  .argument("<slug>", "Organization slug")
+  .option("--escalate-to <id>", "Explicit escalation target DID/user ID")
+  .option("--confidence-threshold <n>", "Auto-escalate below this confidence (0.0-1.0)")
+  .option("--veto-power <bool>", "Whether the human owner can veto (true/false)")
+  .option(
+    "--auto-escalate-irreversible <bool>",
+    "Auto-escalate every irreversible action (true/false)",
+  )
+  .action(orgEscalationSetCommand);
+
+org
+  .command("kpi")
+  .description("Add or update a KPI on an organization")
+  .argument("<slug>", "Organization slug")
+  .argument("<name>", "KPI name")
+  .option("--target <n>", "Goal value (required for a new KPI)")
+  .option("--current <n>", "Latest measured value")
+  .option("--unit <unit>", "Unit of measure")
+  .option("--direction <dir>", "higher-is-better or lower-is-better")
+  .action(orgKpiSetCommand);
 
 // awp status
 program

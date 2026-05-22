@@ -24,6 +24,8 @@ export interface ProjectFrontmatter extends BaseFrontmatter {
   deadline?: string;
   members: ProjectMember[];
   tags?: string[];
+  /** Optional owning organization ID (OGP back-reference) */
+  orgId?: string;
   taskCount: number;
   completedCount: number;
 }

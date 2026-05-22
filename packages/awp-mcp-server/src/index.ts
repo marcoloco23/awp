@@ -22,6 +22,7 @@ import { registerProjectTools } from "./tools/project.js";
 import { registerTaskTools } from "./tools/task.js";
 import { registerConfigTools } from "./tools/config.js";
 import { registerSwarmTools } from "./tools/swarm.js";
+import { registerOrganizationTools } from "./tools/organization.js";
 import { registerSyncTools } from "./tools/sync.js";
 import { registerExperimentTools } from "./tools/experiment.js";
 
@@ -42,6 +43,7 @@ registerProjectTools(server);
 registerTaskTools(server);
 registerConfigTools(server);
 registerSwarmTools(server);
+registerOrganizationTools(server);
 registerSyncTools(server);
 registerExperimentTools(server);
 

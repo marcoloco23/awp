@@ -3,6 +3,7 @@ import {
   AWP_VERSION,
   SMP_VERSION,
   RDP_VERSION,
+  OGP_VERSION,
   REQUIRED_FILES,
   OPTIONAL_FILES,
   ALL_WORKSPACE_FILES,
@@ -11,6 +12,7 @@ import {
   ARTIFACTS_DIR,
   REPUTATION_DIR,
   CONTRACTS_DIR,
+  ORGANIZATIONS_DIR,
   FILE_TYPE_MAP,
   SCHEMA_MAP,
   getSchemaPath,
@@ -28,6 +30,10 @@ describe("AWP constants", () => {
 
     it("has valid RDP version", () => {
       expect(RDP_VERSION).toMatch(/^\d+\.\d+$/);
+    });
+
+    it("has valid OGP version", () => {
+      expect(OGP_VERSION).toMatch(/^\d+\.\d+$/);
     });
   });
 
@@ -65,6 +71,7 @@ describe("AWP constants", () => {
       expect(ARTIFACTS_DIR).toBe("artifacts");
       expect(REPUTATION_DIR).toBe("reputation");
       expect(CONTRACTS_DIR).toBe("contracts");
+      expect(ORGANIZATIONS_DIR).toBe("organizations");
     });
   });
 
@@ -87,6 +94,11 @@ describe("AWP constants", () => {
       expect(SCHEMA_MAP["identity"]).toBe("identity.schema.json");
       expect(SCHEMA_MAP["soul"]).toBe("soul.schema.json");
       expect(SCHEMA_MAP["knowledge-artifact"]).toBe("knowledge-artifact.schema.json");
+    });
+
+    it("maps the organization type to its schema", () => {
+      expect(SCHEMA_MAP["organization"]).toBe("organization.schema.json");
+      expect(FILE_TYPE_MAP["organization"]).toBe("organizations/");
     });
   });
 

@@ -20,6 +20,7 @@ import { registerProjectTools } from "./project.js";
 import { registerTaskTools } from "./task.js";
 import { registerConfigTools } from "./config.js";
 import { registerSwarmTools } from "./swarm.js";
+import { registerOrganizationTools } from "./organization.js";
 import { registerSyncTools } from "./sync.js";
 import { registerExperimentTools } from "./experiment.js";
 
@@ -522,6 +523,239 @@ describe("swarm tools", () => {
     expect(auto.isError).toBe(false);
     const parsed = JSON.parse(auto.text);
     expect(parsed.recruited).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Organization tools (OGP)
+// ---------------------------------------------------------------------------
+
+describe("organization tools", () => {
+  async function buildChart(handlers: Map<string, Handler>): Promise<void> {
+    await call(handlers, "awp_org_create", {
+      slug: "acme",
+      name: "Acme",
+      kind: "org",
+      mission: "Ship reliable software",
+      humanOwner: "user:marc",
+      accountableAgent: "did:awp:ceo",
+    });
+    await call(handlers, "awp_org_create", {
+      slug: "engineering",
+      kind: "division",
+      mission: "Build the product",
+      parent: "acme",
+    });
+    await call(handlers, "awp_org_create", {
+      slug: "platform-team",
+      kind: "team",
+      mission: "Own the platform",
+      parent: "engineering",
+    });
+  }
+
+  it("builds a 3-tier org chart: create + list + tree", async () => {
+    const { handlers, server } = createFakeServer();
+    registerOrganizationTools(server as never);
+
+    await buildChart(handlers);
+
+    const list = await call(handlers, "awp_org_list");
+    expect(JSON.parse(list.text).organizations).toHaveLength(3);
+
+    const tree = await call(handlers, "awp_org_tree");
+    expect(tree.isError).toBe(false);
+    const parsed = JSON.parse(tree.text);
+    expect(parsed.tree.id).toBe("org:acme");
+    expect(parsed.tree.children[0].id).toBe("org:engineering");
+    expect(parsed.tree.children[0].children[0].id).toBe("org:platform-team");
+  });
+
+  it("inherits capabilities down the tree", async () => {
+    const { handlers, server } = createFakeServer();
+    registerOrganizationTools(server as never);
+    await buildChart(handlers);
+
+    const grant = await call(handlers, "awp_org_capability_grant", {
+      slug: "acme",
+      name: "deploy:production",
+      irreversible: true,
+      requiresApproval: true,
+    });
+    expect(grant.isError).toBe(false);
+
+    const resolved = await call(handlers, "awp_org_capability_resolve", {
+      slug: "platform-team",
+    });
+    expect(resolved.isError).toBe(false);
+    const caps = JSON.parse(resolved.text).effective as Array<Record<string, unknown>>;
+    const deploy = caps.find((c) => c.name === "deploy:production");
+    expect(deploy?.inherited).toBe(true);
+    expect(deploy?.source).toBe("org:acme");
+  });
+
+  it("rejects an irreversible capability without approval", async () => {
+    const { handlers, server } = createFakeServer();
+    registerOrganizationTools(server as never);
+    await buildChart(handlers);
+
+    const bad = await call(handlers, "awp_org_capability_grant", {
+      slug: "acme",
+      name: "delete:data",
+      irreversible: true,
+      requiresApproval: false,
+    });
+    expect(bad.isError).toBe(true);
+    expect(bad.text).toContain("requiresApproval");
+  });
+
+  it("resolves the escalation path up to the accountable human owner", async () => {
+    const { handlers, server } = createFakeServer();
+    registerOrganizationTools(server as never);
+    await buildChart(handlers);
+
+    const esc = await call(handlers, "awp_org_escalate", { slug: "platform-team" });
+    expect(esc.isError).toBe(false);
+    const parsed = JSON.parse(esc.text);
+    expect(parsed.path.map((s: { orgId: string }) => s.orgId)).toEqual([
+      "org:platform-team",
+      "org:engineering",
+      "org:acme",
+    ]);
+    expect(parsed.path[2].humanOwner).toBe("user:marc");
+  });
+
+  it("member add, budget set + report, and structural validation", async () => {
+    const { handlers, server } = createFakeServer();
+    registerOrganizationTools(server as never);
+    await buildChart(handlers);
+
+    const member = await call(handlers, "awp_org_member_add", {
+      slug: "platform-team",
+      did: "did:awp:alice",
+      role: "lead",
+      repSlug: "alice",
+      minReputation: { reliability: 0.6 },
+    });
+    expect(member.isError).toBe(false);
+
+    const budget = await call(handlers, "awp_org_budget_set", {
+      slug: "acme",
+      tokens: 1000,
+      period: "monthly",
+    });
+    expect(budget.isError).toBe(false);
+
+    const report = await call(handlers, "awp_org_budget_report", { slug: "acme" });
+    expect(report.isError).toBe(false);
+    expect(JSON.parse(report.text).rollups.length).toBe(3);
+
+    const validate = await call(handlers, "awp_org_validate");
+    expect(validate.isError).toBe(false);
+    expect(JSON.parse(validate.text).errors).toEqual([]);
+  });
+
+  it("authority / escalation / KPI setters and budget-consumption rollup", async () => {
+    const { handlers, server } = createFakeServer();
+    registerOrganizationTools(server as never);
+    await buildChart(handlers);
+
+    const auth = await call(handlers, "awp_org_authority_set", {
+      slug: "acme",
+      canSpawnKinds: ["division"],
+      maxChildren: 5,
+      canRecruit: true,
+    });
+    expect(auth.isError).toBe(false);
+    expect(JSON.parse(auth.text).spawnAuthority.canSpawnKinds).toEqual(["division"]);
+
+    const esc = await call(handlers, "awp_org_escalation_set", {
+      slug: "engineering",
+      escalateTo: "user:vp",
+      vetoPower: true,
+    });
+    expect(esc.isError).toBe(false);
+
+    // escalateTo on engineering short-circuits the path from the team.
+    const path = JSON.parse(
+      (await call(handlers, "awp_org_escalate", { slug: "platform-team" })).text,
+    );
+    expect(path.path.map((s: { orgId: string }) => s.orgId)).toEqual([
+      "org:platform-team",
+      "org:engineering",
+    ]);
+
+    const kpi = await call(handlers, "awp_org_kpi_set", {
+      slug: "acme",
+      name: "ship-rate",
+      target: 5,
+      current: 6,
+      direction: "higher-is-better",
+    });
+    expect(kpi.isError).toBe(false);
+
+    await call(handlers, "awp_org_budget_set", { slug: "acme", tokens: 1000 });
+    await call(handlers, "awp_org_budget_set", { slug: "engineering", consumedTokens: 600 });
+    await call(handlers, "awp_org_budget_set", { slug: "platform-team", consumedTokens: 500 });
+
+    const report = JSON.parse(
+      (await call(handlers, "awp_org_budget_report", { slug: "acme" })).text,
+    );
+    const acmeRollup = report.rollups.find(
+      (r: { orgId: string }) => r.orgId === "org:acme",
+    );
+    expect(acmeRollup.subtreeConsumption.tokens).toBe(1100);
+    expect(acmeRollup.overBudget).toBe(true);
+    expect(acmeRollup.exceededLines).toEqual(["tokens"]);
+
+    const validate = await call(handlers, "awp_org_validate");
+    expect(JSON.parse(validate.text).errors).toEqual([]);
+  });
+
+  it("show returns error for a missing organization", async () => {
+    const { handlers, server } = createFakeServer();
+    registerOrganizationTools(server as never);
+    const show = await call(handlers, "awp_org_show", { slug: "nope" });
+    expect(show.isError).toBe(true);
+  });
+
+  it("tree does not recurse infinitely on a malformed cyclic chart", async () => {
+    const { handlers, server } = createFakeServer();
+    registerOrganizationTools(server as never);
+
+    const orgsDir = join(WS, "organizations");
+    await mkdir(orgsDir, { recursive: true });
+    for (const [slug, parent] of [
+      ["a", "org:b"],
+      ["b", "org:a"],
+    ]) {
+      await writeFile(
+        join(orgsDir, `${slug}.md`),
+        matter.stringify("\n# x\n", {
+          awp: "0.4.0",
+          ogp: "1.0",
+          type: "organization",
+          id: `org:${slug}`,
+          name: slug,
+          kind: "team",
+          mission: "x",
+          status: "active",
+          created: new Date().toISOString(),
+          parent,
+          children: [],
+          accountableAgent: "did:awp:x",
+          humanOwner: "user:x",
+          members: [],
+          capabilities: [],
+        }),
+      );
+    }
+
+    // Must return rather than stack-overflow.
+    const tree = await call(handlers, "awp_org_tree", { slug: "a" });
+    expect(tree.isError).toBe(false);
+    const validate = await call(handlers, "awp_org_validate");
+    expect(JSON.parse(validate.text).errors.length).toBeGreaterThan(0);
   });
 });
 

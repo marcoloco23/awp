@@ -7,6 +7,7 @@ import {
   REPUTATION_DIR,
   CONTRACTS_DIR,
   PROJECTS_DIR,
+  ORGANIZATIONS_DIR,
 } from "@agent-workspace/core";
 import { loadManifest } from "../lib/workspace.js";
 import { requireWorkspaceRoot } from "../lib/cli-utils.js";
@@ -191,12 +192,17 @@ export async function validateCommand(options?: { quick?: boolean }): Promise<vo
     const taskResult = await validateProjectTasks(root);
     if (taskResult.errors > 0) hasErrors = true;
 
+    // Organizations (OGP)
+    const orgResult = await validateDirectory(root, ORGANIZATIONS_DIR, "organization");
+    if (orgResult.errors > 0) hasErrors = true;
+
     const totalScanned =
       artResult.checked +
       repResult.checked +
       conResult.checked +
       projResult.checked +
-      taskResult.checked;
+      taskResult.checked +
+      orgResult.checked;
     if (totalScanned > 0) {
       console.log(`\n  Scanned ${totalScanned} content file(s).`);
     }
