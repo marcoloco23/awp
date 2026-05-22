@@ -442,6 +442,7 @@ This specification follows Semantic Versioning. Breaking changes increment the m
 | `delegation-contract` | contracts/*.md | Delegation contracts (RDP) |
 | `project` | projects/*.md | Coordination projects (CDP) |
 | `task` | projects/*/tasks/*.md | Project tasks (CDP) |
+| `organization` | organizations/*.md | Machine organizations (OGP) |
 
 ## Appendix B: Reserved Directories
 
@@ -453,4 +454,5 @@ This specification follows Semantic Versioning. Breaking changes increment the m
 | `contracts/` | Delegation contracts |
 | `artifacts/` | Knowledge artifacts (SMP) |
 | `projects/` | Coordination projects and tasks (CDP) |
+| `organizations/` | Machine organizations (OGP) |
 | `canvas/` | UI canvases and dashboards |

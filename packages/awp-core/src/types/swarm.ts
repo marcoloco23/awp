@@ -52,6 +52,8 @@ export interface SwarmFrontmatter extends BaseFrontmatter {
   roles: SwarmRole[];
   /** Optional linked project ID */
   projectId?: string;
+  /** Optional owning organization ID (OGP back-reference) */
+  orgId?: string;
   /** Classification tags */
   tags?: string[];
 }

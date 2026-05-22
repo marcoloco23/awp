@@ -83,3 +83,30 @@ export {
   isSwarmFullyStaffed,
   getSwarmStaffingSummary,
 } from "./swarm.js";
+
+// Organization utilities (OGP — recursive org charts)
+export {
+  type OrgTree,
+  type BudgetRollup,
+  type CapabilityResolution,
+  type EscalationStep,
+  type SpawnCheck,
+  type OrgValidationIssue,
+  type OrgSummary,
+  buildOrgTree,
+  getAncestors,
+  getDescendants,
+  getOrgDepth,
+  detectOrgCycles,
+  resolveCapabilities,
+  isCapabilityAllowed,
+  rollupBudget,
+  checkBudget,
+  resolveEscalationPath,
+  resolveApprover,
+  canSpawnChild,
+  canRecruitMember,
+  validateOrgStructure,
+  checkMemberGates,
+  getOrgSummary,
+} from "./organization.js";

@@ -253,6 +253,72 @@ describe("CLI E2E — swarm", () => {
   });
 });
 
+describe("CLI E2E — org", () => {
+  beforeEach(async () => {
+    await runCli(["init", "."], WS);
+  });
+
+  it("org create + show + tree + validate", async () => {
+    const c = await runCli(
+      ["org", "create", "acme", "--kind", "org", "--mission", "Ship", "--human-owner", "user:marc"],
+      WS,
+    );
+    expect(c.code).toBe(0);
+    expect(c.stdout).toContain("Created organizations/acme.md");
+
+    const e = await runCli(
+      ["org", "create", "engineering", "--kind", "division", "--parent", "acme"],
+      WS,
+    );
+    expect(e.code).toBe(0);
+
+    const l = await runCli(["org", "list"], WS);
+    expect(l.stdout).toContain("acme");
+    expect(l.stdout).toContain("engineering");
+
+    const s = await runCli(["org", "show", "acme"], WS);
+    expect(s.code).toBe(0);
+    expect(s.stdout).toContain("Acme");
+
+    const t = await runCli(["org", "tree"], WS);
+    expect(t.code).toBe(0);
+    expect(t.stdout).toContain("Engineering");
+
+    const v = await runCli(["org", "validate"], WS);
+    expect(v.code).toBe(0);
+
+    // Workspace validate scans the organizations/ directory.
+    const wv = await runCli(["validate"], WS);
+    expect(wv.code).toBe(0);
+    expect(wv.stdout).toContain("organizations/acme.md");
+  });
+
+  it("org capability grant (irreversible) + budget + escalate", async () => {
+    await runCli(["org", "create", "acme", "--kind", "org", "--human-owner", "user:marc"], WS);
+
+    const grant = await runCli(
+      ["org", "capability", "grant", "acme", "deploy:production", "--irreversible"],
+      WS,
+    );
+    expect(grant.code).toBe(0);
+    expect(grant.stdout).toContain("requiresApproval set to true");
+
+    const resolve = await runCli(["org", "capability", "resolve", "acme"], WS);
+    expect(resolve.code).toBe(0);
+    expect(resolve.stdout).toContain("deploy:production");
+
+    const budget = await runCli(["org", "budget", "set", "acme", "--tokens", "5000"], WS);
+    expect(budget.code).toBe(0);
+
+    const report = await runCli(["org", "budget", "report", "acme"], WS);
+    expect(report.code).toBe(0);
+
+    const escalate = await runCli(["org", "escalate", "acme"], WS);
+    expect(escalate.code).toBe(0);
+    expect(escalate.stdout).toContain("user:marc");
+  });
+});
+
 describe("CLI E2E — schema", () => {
   beforeEach(async () => {
     await runCli(["init", "."], WS);

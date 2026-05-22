@@ -1,0 +1,287 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://awp.dev/schemas/organization.schema.json",
+  "title": "AWP Organization",
+  "description": "Schema for AWP organization frontmatter (OGP v1.0) - a standing coordination unit in a recursive org chart",
+  "type": "object",
+  "required": [
+    "awp",
+    "ogp",
+    "type",
+    "id",
+    "name",
+    "kind",
+    "mission",
+    "status",
+    "created",
+    "parent",
+    "children",
+    "accountableAgent",
+    "humanOwner",
+    "members",
+    "capabilities"
+  ],
+  "properties": {
+    "awp": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "AWP specification version"
+    },
+    "ogp": {
+      "type": "string",
+      "description": "OGP specification version"
+    },
+    "type": {
+      "type": "string",
+      "const": "organization"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^org:[a-z0-9][a-z0-9-]*$",
+      "description": "Unique identifier (org:<slug>)"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable unit name"
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["org", "division", "team"],
+      "description": "Depth tier of the unit (tiers descend org > division > team)"
+    },
+    "mission": {
+      "type": "string",
+      "description": "One-line purpose of the unit"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["forming", "active", "paused", "dissolved"],
+      "description": "Organization lifecycle state"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Creation timestamp"
+    },
+    "parent": {
+      "type": ["string", "null"],
+      "description": "Parent org:<slug> ID, or null for the root unit"
+    },
+    "children": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Child org:<slug> IDs (denormalized for fast reads)"
+    },
+    "accountableAgent": {
+      "type": "string",
+      "description": "DID of the agent accountable for this unit's outcomes"
+    },
+    "humanOwner": {
+      "type": "string",
+      "description": "User ID of the human ultimately accountable (user:<name>)"
+    },
+    "members": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/orgMember" },
+      "description": "Member agents with roles and optional reputation gates"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/orgCapability" },
+      "description": "Capability scope grants for this unit's agents"
+    },
+    "spawnAuthority": {
+      "$ref": "#/$defs/spawnAuthority",
+      "description": "What sub-units/recruitment this unit may create"
+    },
+    "budget": {
+      "$ref": "#/$defs/orgBudget",
+      "description": "Token/tool/spend budget"
+    },
+    "escalation": {
+      "$ref": "#/$defs/orgEscalation",
+      "description": "Approval / exception routing config"
+    },
+    "kpis": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/orgKPI" },
+      "description": "Measurable objectives for the unit"
+    },
+    "projects": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Owned CDP project:<slug> IDs"
+    },
+    "swarms": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Owned CDP swarm:<slug> IDs"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Classification tags"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "orgMember": {
+      "type": "object",
+      "required": ["did", "role", "slug"],
+      "properties": {
+        "did": {
+          "type": "string",
+          "description": "W3C DID of the member agent"
+        },
+        "role": {
+          "type": "string",
+          "description": "Role within the unit (e.g., 'lead', 'ic', 'tool')"
+        },
+        "slug": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "Reputation profile slug"
+        },
+        "seat": {
+          "type": "string",
+          "enum": ["accountable", "contributor", "tool"],
+          "description": "Accountability seat type"
+        },
+        "minReputation": {
+          "type": "object",
+          "description": "Map of dimension/domain to minimum score threshold",
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "orgCapability": {
+      "type": "object",
+      "required": ["name", "irreversible", "requiresApproval"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Capability identifier (e.g., 'read:artifacts', 'deploy:production')"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable explanation"
+        },
+        "irreversible": {
+          "type": "boolean",
+          "description": "True for actions that cannot be undone"
+        },
+        "requiresApproval": {
+          "type": "boolean",
+          "description": "True if a human must approve each use (MUST be true when irreversible is true)"
+        },
+        "approver": {
+          "type": "string",
+          "description": "User ID who approves; defaults to the resolved escalation target"
+        },
+        "inherited": {
+          "type": "boolean",
+          "description": "Set by capability resolution when the grant came from an ancestor"
+        }
+      },
+      "additionalProperties": true
+    },
+    "spawnAuthority": {
+      "type": "object",
+      "required": ["canSpawnKinds"],
+      "properties": {
+        "canSpawnKinds": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["org", "division", "team"] },
+          "description": "Which kinds this unit may create as children"
+        },
+        "maxChildren": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Cap on direct children (0 = unlimited)"
+        },
+        "maxDepth": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximum absolute tree depth at which descendants may be placed"
+        },
+        "canRecruit": {
+          "type": "boolean",
+          "description": "Whether this unit may add member agents without parent approval"
+        }
+      },
+      "additionalProperties": true
+    },
+    "orgBudget": {
+      "type": "object",
+      "required": ["allocation", "consumption"],
+      "properties": {
+        "currency": {
+          "type": "string",
+          "description": "Accounting currency (default: 'tokens')"
+        },
+        "allocation": { "$ref": "#/$defs/budgetLine" },
+        "consumption": { "$ref": "#/$defs/budgetLine" },
+        "period": {
+          "type": "string",
+          "enum": ["one-time", "daily", "monthly"],
+          "description": "Accounting window"
+        }
+      },
+      "additionalProperties": true
+    },
+    "budgetLine": {
+      "type": "object",
+      "properties": {
+        "tokens": { "type": "number", "minimum": 0 },
+        "toolCalls": { "type": "number", "minimum": 0 },
+        "spend": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": true
+    },
+    "orgEscalation": {
+      "type": "object",
+      "properties": {
+        "escalateTo": {
+          "type": "string",
+          "description": "Explicit DID/user override; if absent, escalation walks the parent chain"
+        },
+        "confidenceThreshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Auto-escalate to a human if confidence below this threshold"
+        },
+        "vetoPower": {
+          "type": "boolean",
+          "description": "Whether the humanOwner can veto unit decisions"
+        },
+        "autoEscalateIrreversible": {
+          "type": "boolean",
+          "description": "If true, any irreversible capability use auto-escalates"
+        }
+      },
+      "additionalProperties": true
+    },
+    "orgKPI": {
+      "type": "object",
+      "required": ["name", "target"],
+      "properties": {
+        "name": { "type": "string", "description": "Metric name" },
+        "target": { "type": "number", "description": "Goal value" },
+        "current": { "type": "number", "description": "Latest measured value" },
+        "unit": { "type": "string", "description": "Unit of measure" },
+        "direction": {
+          "type": "string",
+          "enum": ["higher-is-better", "lower-is-better"],
+          "description": "Which direction counts as progress"
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

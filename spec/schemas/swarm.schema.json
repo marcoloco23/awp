@@ -59,6 +59,11 @@
       "pattern": "^project:[a-z0-9][a-z0-9-]*$",
       "description": "Optional linked project ID"
     },
+    "orgId": {
+      "type": "string",
+      "pattern": "^org:[a-z0-9][a-z0-9-]*$",
+      "description": "Optional owning organization ID (OGP back-reference)"
+    },
     "tags": {
       "type": "array",
       "items": { "type": "string" },

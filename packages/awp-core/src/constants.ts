@@ -15,6 +15,9 @@ export const RDP_VERSION = "1.0";
 /** Current CDP protocol version */
 export const CDP_VERSION = "1.0";
 
+/** Current OGP (Organization Protocol) version */
+export const OGP_VERSION = "1.0";
+
 /** Required workspace files */
 export const REQUIRED_FILES = ["IDENTITY.md", "SOUL.md"] as const;
 
@@ -51,6 +54,9 @@ export const PROJECTS_DIR = "projects";
 /** Swarms directory */
 export const SWARMS_DIR = "swarms";
 
+/** Organizations directory (OGP) */
+export const ORGANIZATIONS_DIR = "organizations";
+
 /** Sync configuration directory */
 export const SYNC_DIR = ".awp/sync";
 
@@ -78,6 +84,7 @@ export const FILE_TYPE_MAP: Record<string, string> = {
   project: "projects/",
   task: "projects/",
   swarm: "swarms/",
+  organization: "organizations/",
 };
 
 /**
@@ -109,6 +116,7 @@ export const SCHEMA_MAP: Record<string, string> = {
   project: "project.schema.json",
   task: "task.schema.json",
   swarm: "swarm.schema.json",
+  organization: "organization.schema.json",
   "sync-remote": "sync-remote.schema.json",
   "sync-state": "sync-state.schema.json",
 };

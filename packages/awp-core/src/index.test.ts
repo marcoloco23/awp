@@ -7,6 +7,7 @@ describe("@agent-workspace/core public API", () => {
     expect(typeof core.SMP_VERSION).toBe("string");
     expect(typeof core.RDP_VERSION).toBe("string");
     expect(typeof core.CDP_VERSION).toBe("string");
+    expect(typeof core.OGP_VERSION).toBe("string");
   });
 
   it("exports directory and file constants", () => {
@@ -17,6 +18,7 @@ describe("@agent-workspace/core public API", () => {
     expect(core.CONTRACTS_DIR).toBe("contracts");
     expect(core.PROJECTS_DIR).toBe("projects");
     expect(core.SWARMS_DIR).toBe("swarms");
+    expect(core.ORGANIZATIONS_DIR).toBe("organizations");
   });
 
   it("exports sync constants", () => {

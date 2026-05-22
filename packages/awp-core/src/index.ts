@@ -40,11 +40,24 @@ export type { ProjectFrontmatter, ProjectMember, TaskFrontmatter } from "./types
 
 export type { SwarmFrontmatter, SwarmRole, SwarmGovernance } from "./types/swarm.js";
 
+export type {
+  OrganizationFrontmatter,
+  OrgKind,
+  OrgMember,
+  OrgCapability,
+  OrgBudget,
+  OrgBudgetLine,
+  OrgSpawnAuthority,
+  OrgEscalation,
+  OrgKPI,
+} from "./types/organization.js";
+
 export {
   AWP_VERSION,
   SMP_VERSION,
   RDP_VERSION,
   CDP_VERSION,
+  OGP_VERSION,
   REQUIRED_FILES,
   OPTIONAL_FILES,
   ALL_WORKSPACE_FILES,
@@ -55,6 +68,7 @@ export {
   CONTRACTS_DIR,
   PROJECTS_DIR,
   SWARMS_DIR,
+  ORGANIZATIONS_DIR,
   SYNC_DIR,
   SYNC_REMOTES_FILE,
   SYNC_STATE_DIR,
