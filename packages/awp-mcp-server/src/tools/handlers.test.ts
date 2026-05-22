@@ -655,11 +655,107 @@ describe("organization tools", () => {
     expect(JSON.parse(validate.text).errors).toEqual([]);
   });
 
+  it("authority / escalation / KPI setters and budget-consumption rollup", async () => {
+    const { handlers, server } = createFakeServer();
+    registerOrganizationTools(server as never);
+    await buildChart(handlers);
+
+    const auth = await call(handlers, "awp_org_authority_set", {
+      slug: "acme",
+      canSpawnKinds: ["division"],
+      maxChildren: 5,
+      canRecruit: true,
+    });
+    expect(auth.isError).toBe(false);
+    expect(JSON.parse(auth.text).spawnAuthority.canSpawnKinds).toEqual(["division"]);
+
+    const esc = await call(handlers, "awp_org_escalation_set", {
+      slug: "engineering",
+      escalateTo: "user:vp",
+      vetoPower: true,
+    });
+    expect(esc.isError).toBe(false);
+
+    // escalateTo on engineering short-circuits the path from the team.
+    const path = JSON.parse(
+      (await call(handlers, "awp_org_escalate", { slug: "platform-team" })).text,
+    );
+    expect(path.path.map((s: { orgId: string }) => s.orgId)).toEqual([
+      "org:platform-team",
+      "org:engineering",
+    ]);
+
+    const kpi = await call(handlers, "awp_org_kpi_set", {
+      slug: "acme",
+      name: "ship-rate",
+      target: 5,
+      current: 6,
+      direction: "higher-is-better",
+    });
+    expect(kpi.isError).toBe(false);
+
+    await call(handlers, "awp_org_budget_set", { slug: "acme", tokens: 1000 });
+    await call(handlers, "awp_org_budget_set", { slug: "engineering", consumedTokens: 600 });
+    await call(handlers, "awp_org_budget_set", { slug: "platform-team", consumedTokens: 500 });
+
+    const report = JSON.parse(
+      (await call(handlers, "awp_org_budget_report", { slug: "acme" })).text,
+    );
+    const acmeRollup = report.rollups.find(
+      (r: { orgId: string }) => r.orgId === "org:acme",
+    );
+    expect(acmeRollup.subtreeConsumption.tokens).toBe(1100);
+    expect(acmeRollup.overBudget).toBe(true);
+    expect(acmeRollup.exceededLines).toEqual(["tokens"]);
+
+    const validate = await call(handlers, "awp_org_validate");
+    expect(JSON.parse(validate.text).errors).toEqual([]);
+  });
+
   it("show returns error for a missing organization", async () => {
     const { handlers, server } = createFakeServer();
     registerOrganizationTools(server as never);
     const show = await call(handlers, "awp_org_show", { slug: "nope" });
     expect(show.isError).toBe(true);
+  });
+
+  it("tree does not recurse infinitely on a malformed cyclic chart", async () => {
+    const { handlers, server } = createFakeServer();
+    registerOrganizationTools(server as never);
+
+    const orgsDir = join(WS, "organizations");
+    await mkdir(orgsDir, { recursive: true });
+    for (const [slug, parent] of [
+      ["a", "org:b"],
+      ["b", "org:a"],
+    ]) {
+      await writeFile(
+        join(orgsDir, `${slug}.md`),
+        matter.stringify("\n# x\n", {
+          awp: "0.4.0",
+          ogp: "1.0",
+          type: "organization",
+          id: `org:${slug}`,
+          name: slug,
+          kind: "team",
+          mission: "x",
+          status: "active",
+          created: new Date().toISOString(),
+          parent,
+          children: [],
+          accountableAgent: "did:awp:x",
+          humanOwner: "user:x",
+          members: [],
+          capabilities: [],
+        }),
+      );
+    }
+
+    // Must return rather than stack-overflow.
+    const tree = await call(handlers, "awp_org_tree", { slug: "a" });
+    expect(tree.isError).toBe(false);
+    const validate = await call(handlers, "awp_org_validate");
+    expect(JSON.parse(validate.text).errors.length).toBeGreaterThan(0);
   });
 });
 

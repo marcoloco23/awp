@@ -89,16 +89,18 @@ interface OrgTreeJson {
 function toTreeJson(
   tree: ReturnType<typeof buildOrgTree>,
   orgId: string,
+  visited: Set<string> = new Set(),
 ): OrgTreeJson | null {
   const org = tree.byId.get(orgId);
-  if (!org) return null;
+  if (!org || visited.has(orgId)) return null;
+  visited.add(orgId);
   return {
     id: org.id,
     name: org.name,
     kind: org.kind,
     status: org.status,
     children: (tree.childrenOf.get(orgId) ?? [])
-      .map((childId) => toTreeJson(tree, childId))
+      .map((childId) => toTreeJson(tree, childId, visited))
       .filter((c): c is OrgTreeJson => c !== null),
   };
 }
@@ -535,17 +537,30 @@ export function registerOrganizationTools(server: McpServer): void {
     "awp_org_budget_set",
     {
       title: "Set Organization Budget",
-      description: "Set an organization's budget allocation.",
+      description: "Set an organization's budget allocation and/or recorded consumption.",
       inputSchema: {
         slug: z.string().describe("Organization slug"),
-        tokens: z.number().optional(),
-        toolCalls: z.number().optional(),
-        spend: z.number().optional(),
+        tokens: z.number().optional().describe("Token allocation"),
+        toolCalls: z.number().optional().describe("Tool-call allocation"),
+        spend: z.number().optional().describe("Spend allocation"),
+        consumedTokens: z.number().optional().describe("Recorded token consumption"),
+        consumedToolCalls: z.number().optional().describe("Recorded tool-call consumption"),
+        consumedSpend: z.number().optional().describe("Recorded spend consumption"),
         currency: z.string().optional(),
         period: z.enum(["one-time", "daily", "monthly"]).optional(),
       },
     },
-    async ({ slug, tokens, toolCalls, spend, currency, period }) => {
+    async ({
+      slug,
+      tokens,
+      toolCalls,
+      spend,
+      consumedTokens,
+      consumedToolCalls,
+      consumedSpend,
+      currency,
+      period,
+    }) => {
       const root = getWorkspaceRoot();
       const filePath = join(root, ORGANIZATIONS_DIR, `${slug}.md`);
 
@@ -562,13 +577,21 @@ export function registerOrganizationTools(server: McpServer): void {
       if (toolCalls !== undefined) allocation.toolCalls = toolCalls;
       if (spend !== undefined) allocation.spend = spend;
 
+      const consumption: Json = {};
+      if (consumedTokens !== undefined) consumption.tokens = consumedTokens;
+      if (consumedToolCalls !== undefined) consumption.toolCalls = consumedToolCalls;
+      if (consumedSpend !== undefined) consumption.spend = consumedSpend;
+
       const budget: Json = {
         currency: currency ?? existing.currency ?? "tokens",
         allocation:
           Object.keys(allocation).length > 0
             ? allocation
             : ((existing.allocation as Json) ?? {}),
-        consumption: (existing.consumption as Json) ?? {},
+        consumption:
+          Object.keys(consumption).length > 0
+            ? consumption
+            : ((existing.consumption as Json) ?? {}),
       };
       if (period ?? existing.period) budget.period = period ?? existing.period;
       parsed.data.budget = budget;
@@ -577,6 +600,138 @@ export function registerOrganizationTools(server: McpServer): void {
       return ok(
         JSON.stringify({ updated: `organizations/${slug}.md`, budget }, null, 2),
       );
+    },
+  );
+
+  // --- awp_org_authority_set ---
+  server.registerTool(
+    "awp_org_authority_set",
+    {
+      title: "Set Organization Spawn Authority",
+      description: "Set what sub-units and recruitment an organization is authorized to create.",
+      inputSchema: {
+        slug: z.string().describe("Organization slug"),
+        canSpawnKinds: z
+          .array(z.enum(["org", "division", "team"]))
+          .optional()
+          .describe("Kinds this unit may spawn as children"),
+        maxChildren: z.number().optional().describe("Cap on direct children"),
+        maxDepth: z.number().optional().describe("Maximum absolute tree depth for descendants"),
+        canRecruit: z.boolean().optional().describe("Whether the unit may recruit members"),
+      },
+    },
+    async ({ slug, canSpawnKinds, maxChildren, maxDepth, canRecruit }) => {
+      const root = getWorkspaceRoot();
+      const filePath = join(root, ORGANIZATIONS_DIR, `${slug}.md`);
+
+      let parsed: { data: Json; content: string };
+      try {
+        parsed = matter(await readFile(filePath, "utf-8"));
+      } catch {
+        return err(`Organization "${slug}" not found.`);
+      }
+
+      const existing = (parsed.data.spawnAuthority as Json | undefined) ?? {};
+      const authority: Json = {
+        canSpawnKinds: canSpawnKinds ?? existing.canSpawnKinds ?? [],
+      };
+      const mc = maxChildren ?? existing.maxChildren;
+      if (mc !== undefined) authority.maxChildren = mc;
+      const md = maxDepth ?? existing.maxDepth;
+      if (md !== undefined) authority.maxDepth = md;
+      const cr = canRecruit ?? existing.canRecruit;
+      if (cr !== undefined) authority.canRecruit = cr;
+
+      parsed.data.spawnAuthority = authority;
+      await writeFile(filePath, matter.stringify(parsed.content, parsed.data), "utf-8");
+      return ok(JSON.stringify({ updated: `organizations/${slug}.md`, spawnAuthority: authority }, null, 2));
+    },
+  );
+
+  // --- awp_org_escalation_set ---
+  server.registerTool(
+    "awp_org_escalation_set",
+    {
+      title: "Set Organization Escalation Config",
+      description: "Set an organization's approval / exception routing config.",
+      inputSchema: {
+        slug: z.string().describe("Organization slug"),
+        escalateTo: z.string().optional().describe("Explicit escalation target DID/user ID"),
+        confidenceThreshold: z
+          .number()
+          .min(0)
+          .max(1)
+          .optional()
+          .describe("Auto-escalate below this confidence"),
+        vetoPower: z.boolean().optional().describe("Whether the human owner can veto"),
+        autoEscalateIrreversible: z
+          .boolean()
+          .optional()
+          .describe("Auto-escalate every irreversible action"),
+      },
+    },
+    async ({ slug, escalateTo, confidenceThreshold, vetoPower, autoEscalateIrreversible }) => {
+      const root = getWorkspaceRoot();
+      const filePath = join(root, ORGANIZATIONS_DIR, `${slug}.md`);
+
+      let parsed: { data: Json; content: string };
+      try {
+        parsed = matter(await readFile(filePath, "utf-8"));
+      } catch {
+        return err(`Organization "${slug}" not found.`);
+      }
+
+      const escalation: Json = { ...((parsed.data.escalation as Json | undefined) ?? {}) };
+      if (escalateTo !== undefined) escalation.escalateTo = escalateTo;
+      if (confidenceThreshold !== undefined) escalation.confidenceThreshold = confidenceThreshold;
+      if (vetoPower !== undefined) escalation.vetoPower = vetoPower;
+      if (autoEscalateIrreversible !== undefined) {
+        escalation.autoEscalateIrreversible = autoEscalateIrreversible;
+      }
+
+      parsed.data.escalation = escalation;
+      await writeFile(filePath, matter.stringify(parsed.content, parsed.data), "utf-8");
+      return ok(JSON.stringify({ updated: `organizations/${slug}.md`, escalation }, null, 2));
+    },
+  );
+
+  // --- awp_org_kpi_set ---
+  server.registerTool(
+    "awp_org_kpi_set",
+    {
+      title: "Set Organization KPI",
+      description: "Add or update a KPI on an organization unit.",
+      inputSchema: {
+        slug: z.string().describe("Organization slug"),
+        name: z.string().describe("KPI name"),
+        target: z.number().describe("Goal value"),
+        current: z.number().optional().describe("Latest measured value"),
+        unit: z.string().optional().describe("Unit of measure"),
+        direction: z.enum(["higher-is-better", "lower-is-better"]).optional(),
+      },
+    },
+    async ({ slug, name, target, current, unit, direction }) => {
+      const root = getWorkspaceRoot();
+      const filePath = join(root, ORGANIZATIONS_DIR, `${slug}.md`);
+
+      let parsed: { data: Json; content: string };
+      try {
+        parsed = matter(await readFile(filePath, "utf-8"));
+      } catch {
+        return err(`Organization "${slug}" not found.`);
+      }
+
+      const kpis = (parsed.data.kpis as Json[]) ?? [];
+      const kpi: Json = { name, target };
+      if (current !== undefined) kpi.current = current;
+      if (unit !== undefined) kpi.unit = unit;
+      if (direction !== undefined) kpi.direction = direction;
+
+      const existed = kpis.some((k) => k.name === name);
+      parsed.data.kpis = [...kpis.filter((k) => k.name !== name), kpi];
+
+      await writeFile(filePath, matter.stringify(parsed.content, parsed.data), "utf-8");
+      return ok(`${existed ? "Updated" : "Added"} KPI "${name}" on organization "${slug}"`);
     },
   );
 

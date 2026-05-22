@@ -60,6 +60,9 @@ import {
   orgCapabilityResolveCommand,
   orgBudgetSetCommand,
   orgBudgetReportCommand,
+  orgAuthoritySetCommand,
+  orgEscalationSetCommand,
+  orgKpiSetCommand,
   orgEscalateCommand,
   orgValidateCommand,
 } from "./commands/org.js";
@@ -552,11 +555,14 @@ const orgBudget = org.command("budget").description("Manage organization budgets
 
 orgBudget
   .command("set")
-  .description("Set an organization's budget allocation")
+  .description("Set an organization's budget allocation and/or recorded consumption")
   .argument("<slug>", "Organization slug")
   .option("--tokens <n>", "Token allocation")
   .option("--tool-calls <n>", "Tool-call allocation")
   .option("--spend <n>", "Spend allocation")
+  .option("--used-tokens <n>", "Recorded token consumption")
+  .option("--used-tool-calls <n>", "Recorded tool-call consumption")
+  .option("--used-spend <n>", "Recorded spend consumption")
   .option("--currency <currency>", "Accounting currency")
   .option("--period <period>", "Accounting window (one-time, daily, monthly)")
   .action(orgBudgetSetCommand);
@@ -566,6 +572,40 @@ orgBudget
   .description("Report budget allocation vs subtree consumption")
   .argument("[slug]", "Subtree root slug (defaults to the workspace root org)")
   .action(orgBudgetReportCommand);
+
+org
+  .command("authority")
+  .description("Set an organization's spawn authority")
+  .argument("<slug>", "Organization slug")
+  .option("--can-spawn <kinds>", "Comma-separated kinds this unit may spawn (org,division,team)")
+  .option("--max-children <n>", "Cap on direct children")
+  .option("--max-depth <n>", "Maximum absolute tree depth for descendants")
+  .option("--can-recruit <bool>", "Whether the unit may recruit members (true/false)")
+  .action(orgAuthoritySetCommand);
+
+org
+  .command("escalation")
+  .description("Set an organization's escalation config")
+  .argument("<slug>", "Organization slug")
+  .option("--escalate-to <id>", "Explicit escalation target DID/user ID")
+  .option("--confidence-threshold <n>", "Auto-escalate below this confidence (0.0-1.0)")
+  .option("--veto-power <bool>", "Whether the human owner can veto (true/false)")
+  .option(
+    "--auto-escalate-irreversible <bool>",
+    "Auto-escalate every irreversible action (true/false)",
+  )
+  .action(orgEscalationSetCommand);
+
+org
+  .command("kpi")
+  .description("Add or update a KPI on an organization")
+  .argument("<slug>", "Organization slug")
+  .argument("<name>", "KPI name")
+  .option("--target <n>", "Goal value (required for a new KPI)")
+  .option("--current <n>", "Latest measured value")
+  .option("--unit <unit>", "Unit of measure")
+  .option("--direction <dir>", "higher-is-better or lower-is-better")
+  .action(orgKpiSetCommand);
 
 // awp status
 program

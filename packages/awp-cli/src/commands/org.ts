@@ -5,6 +5,9 @@ import type {
   OrgKind,
   OrgMember,
   OrgCapability,
+  OrgSpawnAuthority,
+  OrgEscalation,
+  OrgKPI,
 } from "@agent-workspace/core";
 import {
   buildOrgTree,
@@ -48,6 +51,26 @@ function titleize(slug: string): string {
     .split("-")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
+}
+
+/** Parse a tri-state boolean flag value (returns undefined when not provided). */
+function parseBoolFlag(value: string | undefined): boolean | undefined {
+  if (value === undefined) return undefined;
+  const s = value.trim().toLowerCase();
+  if (["true", "yes", "1", "on"].includes(s)) return true;
+  if (["false", "no", "0", "off"].includes(s)) return false;
+  console.error(`Invalid boolean value: "${value}". Use true or false.`);
+  process.exit(1);
+}
+
+/** Parse a non-negative number flag, exiting on a bad value. */
+function parseNonNegative(value: string, label: string): number {
+  const n = Number(value);
+  if (isNaN(n) || n < 0) {
+    console.error(`Invalid ${label}: must be a non-negative number.`);
+    process.exit(1);
+  }
+  return n;
 }
 
 /** Parse "dimension:score" / "domain-competence:domain:score" specs. */
@@ -323,10 +346,16 @@ export async function orgTreeCommand(slug?: string): Promise<void> {
     process.exit(1);
   }
 
+  const visited = new Set<string>();
   function render(orgId: string, prefix: string, isLast: boolean, isRoot: boolean): void {
     const org = tree.byId.get(orgId);
     if (!org) return;
     const connector = isRoot ? "" : isLast ? "└─ " : "├─ ";
+    if (visited.has(orgId)) {
+      console.log(`${prefix}${connector}${org.name} (cycle — already shown)`);
+      return;
+    }
+    visited.add(orgId);
     console.log(`${prefix}${connector}${org.name} (${org.kind}) — ${org.status}`);
 
     const childPrefix = isRoot ? "" : prefix + (isLast ? "   " : "│  ");
@@ -411,7 +440,13 @@ export async function orgMemberAddCommand(
     process.exit(1);
   }
 
-  const repSlug = options.repSlug ?? did.split(":").pop() ?? did;
+  const repSlug = (options.repSlug ?? did.split(":").pop() ?? did).toLowerCase();
+  if (!validateSlug(repSlug)) {
+    console.error(
+      `Could not derive a valid reputation slug from "${did}". Pass --rep-slug explicitly.`,
+    );
+    process.exit(1);
+  }
   const member: OrgMember = {
     did,
     role: options.role ?? "contributor",
@@ -587,6 +622,9 @@ export async function orgBudgetSetCommand(
     tokens?: string;
     toolCalls?: string;
     spend?: string;
+    usedTokens?: string;
+    usedToolCalls?: string;
+    usedSpend?: string;
     currency?: string;
     period?: string;
   },
@@ -601,24 +639,39 @@ export async function orgBudgetSetCommand(
     process.exit(1);
   }
 
+  if (options.period && !["one-time", "daily", "monthly"].includes(options.period)) {
+    console.error(`Invalid period: ${options.period}. Use: one-time, daily, monthly`);
+    process.exit(1);
+  }
+
   const allocation: Record<string, number> = {};
   for (const [flag, key] of [
     ["tokens", "tokens"],
     ["toolCalls", "toolCalls"],
     ["spend", "spend"],
   ] as const) {
-    const raw = options[flag];
-    if (raw !== undefined) {
-      const value = parseFloat(raw);
-      if (isNaN(value) || value < 0) {
-        console.error(`Invalid ${flag}: must be a non-negative number.`);
-        process.exit(1);
-      }
-      allocation[key] = value;
+    if (options[flag] !== undefined) {
+      allocation[key] = parseNonNegative(options[flag] as string, flag);
     }
   }
 
-  if (Object.keys(allocation).length === 0 && !options.currency && !options.period) {
+  const consumption: Record<string, number> = {};
+  for (const [flag, key] of [
+    ["usedTokens", "tokens"],
+    ["usedToolCalls", "toolCalls"],
+    ["usedSpend", "spend"],
+  ] as const) {
+    if (options[flag] !== undefined) {
+      consumption[key] = parseNonNegative(options[flag] as string, flag);
+    }
+  }
+
+  if (
+    Object.keys(allocation).length === 0 &&
+    Object.keys(consumption).length === 0 &&
+    !options.currency &&
+    !options.period
+  ) {
     console.log("No budget values specified.");
     return;
   }
@@ -627,14 +680,164 @@ export async function orgBudgetSetCommand(
   org.frontmatter.budget = {
     currency: options.currency ?? existing?.currency ?? "tokens",
     allocation: Object.keys(allocation).length > 0 ? allocation : (existing?.allocation ?? {}),
-    consumption: existing?.consumption ?? {},
+    consumption:
+      Object.keys(consumption).length > 0 ? consumption : (existing?.consumption ?? {}),
     ...(options.period || existing?.period
       ? { period: (options.period ?? existing?.period) as "one-time" | "daily" | "monthly" }
       : {}),
   };
 
   await writeFile(org.filePath, serializeWorkspaceFile(org), "utf-8");
-  console.log(`Set budget allocation for "${slug}": ${JSON.stringify(org.frontmatter.budget.allocation)}`);
+  console.log(
+    `Set budget for "${slug}": allocation ${JSON.stringify(org.frontmatter.budget.allocation)}, ` +
+      `consumption ${JSON.stringify(org.frontmatter.budget.consumption)}`,
+  );
+}
+
+/**
+ * awp org authority set <slug>
+ */
+export async function orgAuthoritySetCommand(
+  slug: string,
+  options: { canSpawn?: string; maxChildren?: string; maxDepth?: string; canRecruit?: string },
+): Promise<void> {
+  const root = await requireWorkspaceRoot();
+
+  let org;
+  try {
+    org = await loadOrganization(root, slug);
+  } catch {
+    console.error(`Organization not found: ${slug}`);
+    process.exit(1);
+  }
+
+  const existing = org.frontmatter.spawnAuthority;
+  const authority: OrgSpawnAuthority = {
+    canSpawnKinds: existing?.canSpawnKinds ?? [],
+  };
+  if (existing?.maxChildren !== undefined) authority.maxChildren = existing.maxChildren;
+  if (existing?.maxDepth !== undefined) authority.maxDepth = existing.maxDepth;
+  if (existing?.canRecruit !== undefined) authority.canRecruit = existing.canRecruit;
+
+  if (options.canSpawn !== undefined) {
+    const kinds = options.canSpawn
+      .split(",")
+      .map((k) => k.trim())
+      .filter(Boolean);
+    for (const k of kinds) {
+      if (!VALID_KINDS.includes(k as OrgKind)) {
+        console.error(`Invalid kind in --can-spawn: ${k}. Use: ${VALID_KINDS.join(", ")}`);
+        process.exit(1);
+      }
+    }
+    authority.canSpawnKinds = kinds as OrgKind[];
+  }
+  if (options.maxChildren !== undefined) {
+    authority.maxChildren = parseNonNegative(options.maxChildren, "--max-children");
+  }
+  if (options.maxDepth !== undefined) {
+    authority.maxDepth = parseNonNegative(options.maxDepth, "--max-depth");
+  }
+  const recruit = parseBoolFlag(options.canRecruit);
+  if (recruit !== undefined) authority.canRecruit = recruit;
+
+  org.frontmatter.spawnAuthority = authority;
+  await writeFile(org.filePath, serializeWorkspaceFile(org), "utf-8");
+  console.log(`Set spawn authority for "${slug}": ${JSON.stringify(authority)}`);
+}
+
+/**
+ * awp org escalation set <slug>
+ */
+export async function orgEscalationSetCommand(
+  slug: string,
+  options: {
+    escalateTo?: string;
+    confidenceThreshold?: string;
+    vetoPower?: string;
+    autoEscalateIrreversible?: string;
+  },
+): Promise<void> {
+  const root = await requireWorkspaceRoot();
+
+  let org;
+  try {
+    org = await loadOrganization(root, slug);
+  } catch {
+    console.error(`Organization not found: ${slug}`);
+    process.exit(1);
+  }
+
+  const escalation: OrgEscalation = { ...(org.frontmatter.escalation ?? {}) };
+
+  if (options.escalateTo !== undefined) escalation.escalateTo = options.escalateTo;
+  if (options.confidenceThreshold !== undefined) {
+    const t = Number(options.confidenceThreshold);
+    if (isNaN(t) || t < 0 || t > 1) {
+      console.error("Invalid --confidence-threshold: must be 0.0-1.0.");
+      process.exit(1);
+    }
+    escalation.confidenceThreshold = t;
+  }
+  const veto = parseBoolFlag(options.vetoPower);
+  if (veto !== undefined) escalation.vetoPower = veto;
+  const auto = parseBoolFlag(options.autoEscalateIrreversible);
+  if (auto !== undefined) escalation.autoEscalateIrreversible = auto;
+
+  org.frontmatter.escalation = escalation;
+  await writeFile(org.filePath, serializeWorkspaceFile(org), "utf-8");
+  console.log(`Set escalation config for "${slug}": ${JSON.stringify(escalation)}`);
+}
+
+/**
+ * awp org kpi set <slug> <name>
+ */
+export async function orgKpiSetCommand(
+  slug: string,
+  name: string,
+  options: { target?: string; current?: string; unit?: string; direction?: string },
+): Promise<void> {
+  const root = await requireWorkspaceRoot();
+
+  let org;
+  try {
+    org = await loadOrganization(root, slug);
+  } catch {
+    console.error(`Organization not found: ${slug}`);
+    process.exit(1);
+  }
+
+  const kpis = org.frontmatter.kpis ?? [];
+  const existing = kpis.find((k) => k.name === name);
+
+  const target =
+    options.target !== undefined ? Number(options.target) : existing?.target;
+  if (target === undefined || isNaN(target)) {
+    console.error(`A numeric --target is required to define KPI "${name}".`);
+    process.exit(1);
+  }
+
+  if (options.direction && !["higher-is-better", "lower-is-better"].includes(options.direction)) {
+    console.error(
+      `Invalid --direction: ${options.direction}. Use: higher-is-better, lower-is-better`,
+    );
+    process.exit(1);
+  }
+
+  const kpi: OrgKPI = { name, target };
+  const current = options.current !== undefined ? Number(options.current) : existing?.current;
+  if (current !== undefined && !isNaN(current)) kpi.current = current;
+  const unit = options.unit ?? existing?.unit;
+  if (unit) kpi.unit = unit;
+  const direction = options.direction ?? existing?.direction;
+  if (direction) kpi.direction = direction as OrgKPI["direction"];
+
+  const next = kpis.filter((k) => k.name !== name);
+  next.push(kpi);
+  org.frontmatter.kpis = next;
+
+  await writeFile(org.filePath, serializeWorkspaceFile(org), "utf-8");
+  console.log(`${existing ? "Updated" : "Added"} KPI "${name}" on organization "${slug}"`);
 }
 
 /**

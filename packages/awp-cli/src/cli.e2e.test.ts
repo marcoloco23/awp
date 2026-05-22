@@ -317,6 +317,43 @@ describe("CLI E2E — org", () => {
     expect(escalate.code).toBe(0);
     expect(escalate.stdout).toContain("user:marc");
   });
+
+  it("org authority + escalation + kpi setters + budget consumption rollup", async () => {
+    await runCli(["org", "create", "acme", "--kind", "org", "--human-owner", "user:marc"], WS);
+    await runCli(["org", "create", "team-a", "--kind", "team", "--parent", "acme"], WS);
+
+    const auth = await runCli(
+      ["org", "authority", "acme", "--can-spawn", "division,team", "--max-children", "10", "--can-recruit", "true"],
+      WS,
+    );
+    expect(auth.code).toBe(0);
+
+    const esc = await runCli(
+      ["org", "escalation", "team-a", "--escalate-to", "user:lead", "--veto-power", "true"],
+      WS,
+    );
+    expect(esc.code).toBe(0);
+
+    const kpi = await runCli(
+      ["org", "kpi", "acme", "ship-rate", "--target", "5", "--current", "6", "--direction", "higher-is-better"],
+      WS,
+    );
+    expect(kpi.code).toBe(0);
+
+    await runCli(["org", "budget", "set", "acme", "--tokens", "100"], WS);
+    await runCli(["org", "budget", "set", "team-a", "--used-tokens", "300"], WS);
+    const report = await runCli(["org", "budget", "report", "acme"], WS);
+    expect(report.code).toBe(0);
+    expect(report.stdout).toContain("OVER");
+
+    const show = await runCli(["org", "show", "acme"], WS);
+    expect(show.code).toBe(0);
+    expect(show.stdout).toContain("ship-rate");
+
+    const wv = await runCli(["validate"], WS);
+    expect(wv.code).toBe(0);
+    expect(wv.stdout).toContain("Validation PASSED");
+  });
 });
 
 describe("CLI E2E — schema", () => {
