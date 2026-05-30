@@ -9,7 +9,11 @@ vi.mock("node:fs/promises", () => ({
 
 // Import after mock setup
 import { readdir, readFile } from "node:fs/promises";
-import { detectAntiPatterns } from "./anti-patterns.js";
+import {
+  detectAntiPatterns,
+  parseDetectorExpression,
+  parseWindowMs,
+} from "./anti-patterns.js";
 
 const mockedReaddir = vi.mocked(readdir);
 const mockedReadFile = vi.mocked(readFile);
@@ -357,6 +361,118 @@ describe("detectAntiPatterns", () => {
 
       const detections = await detectAntiPatterns([agent], manifesto);
       expect(detections).toHaveLength(0);
+    });
+  });
+
+  describe("frontmatter-driven thresholds", () => {
+    it("parses the threshold from the detector expression", async () => {
+      const agent = makeAgent("borderline");
+      // Raise the threshold to 20/day via the detector expression; 15 artifacts
+      // should now be under the bar and NOT flagged.
+      const manifesto = makeManifestoWithPatterns([
+        { id: "artifact-spam", detector: "artifact-creation-rate > 20/day", penalty: 0.2 },
+      ]);
+
+      const files = Array.from({ length: 15 }, (_, i) => `artifact-${i}.md`);
+      mockedReaddir.mockResolvedValueOnce(files as never);
+      for (const _ of files) {
+        mockedReadFile.mockResolvedValueOnce(makeArtifactMd(recentTimestamp(2)) as never);
+      }
+
+      const detections = await detectAntiPatterns([agent], manifesto);
+      expect(detections).toHaveLength(0);
+    });
+
+    it("honours an explicit threshold field over the detector expression", async () => {
+      const agent = makeAgent("strict");
+      // Expression says 100, but the explicit field tightens it to 5.
+      const manifesto = makeManifestoWithPatterns([
+        {
+          id: "artifact-spam",
+          detector: "artifact-creation-rate > 100/day",
+          penalty: 0.2,
+          threshold: 5,
+        },
+      ]);
+
+      const files = Array.from({ length: 8 }, (_, i) => `artifact-${i}.md`);
+      mockedReaddir.mockResolvedValueOnce(files as never);
+      for (const _ of files) {
+        mockedReadFile.mockResolvedValueOnce(makeArtifactMd(recentTimestamp(2)) as never);
+      }
+
+      const detections = await detectAntiPatterns([agent], manifesto);
+      expect(detections).toHaveLength(1);
+      expect(detections[0].evidence).toContain("threshold: 5");
+    });
+
+    it("honours an explicit window field", async () => {
+      const agent = makeAgent("windowed");
+      // Widen the window to a week; artifacts from 48h ago now count.
+      const manifesto = makeManifestoWithPatterns([
+        {
+          id: "artifact-spam",
+          detector: "artifact-creation-rate > 10/day",
+          penalty: 0.2,
+          window: "week",
+        },
+      ]);
+
+      const files = Array.from({ length: 12 }, (_, i) => `artifact-${i}.md`);
+      mockedReaddir.mockResolvedValueOnce(files as never);
+      for (const _ of files) {
+        mockedReadFile.mockResolvedValueOnce(makeArtifactMd(recentTimestamp(48)) as never);
+      }
+
+      const detections = await detectAntiPatterns([agent], manifesto);
+      expect(detections).toHaveLength(1);
+    });
+  });
+
+  describe("alias resolution", () => {
+    it("resolves the bundled 'attention-hacking' id to the artifact-spam detector", async () => {
+      const agent = makeAgent("hacker");
+      // This is the id/expression the bundled baseline.md manifesto actually
+      // ships — it must resolve to a real detector, not silently no-op.
+      const manifesto = makeManifestoWithPatterns([
+        { id: "attention-hacking", detector: "artifact-creation-rate > 10/day", penalty: 0.25 },
+      ]);
+
+      const files = Array.from({ length: 15 }, (_, i) => `artifact-${i}.md`);
+      mockedReaddir.mockResolvedValueOnce(files as never);
+      for (const _ of files) {
+        mockedReadFile.mockResolvedValueOnce(makeArtifactMd(recentTimestamp(2)) as never);
+      }
+
+      const detections = await detectAntiPatterns([agent], manifesto);
+      expect(detections).toHaveLength(1);
+      // patternId is reported as the manifesto-configured id for traceability.
+      expect(detections[0].patternId).toBe("attention-hacking");
+      expect(detections[0].penalty).toBe(0.25);
+    });
+  });
+
+  describe("expression parsing helpers", () => {
+    it("parseDetectorExpression extracts threshold and window", () => {
+      expect(parseDetectorExpression("artifact-creation-rate > 10/day")).toEqual({
+        threshold: 10,
+        windowMs: 86_400_000,
+      });
+      expect(parseDetectorExpression("self-reported-positive-signals > 3/week")).toEqual({
+        threshold: 3,
+        windowMs: 604_800_000,
+      });
+      // No window component.
+      expect(parseDetectorExpression("evaluator-diversity < 2")).toEqual({ threshold: 2 });
+    });
+
+    it("parseWindowMs handles bare units and counts", () => {
+      expect(parseWindowMs("day")).toBe(86_400_000);
+      expect(parseWindowMs("2d")).toBe(172_800_000);
+      expect(parseWindowMs("12h")).toBe(43_200_000);
+      expect(parseWindowMs("weeks")).toBe(604_800_000);
+      expect(parseWindowMs("nonsense")).toBeUndefined();
+      expect(parseWindowMs(undefined)).toBeUndefined();
     });
   });
 
