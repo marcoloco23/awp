@@ -1,19 +1,12 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+// Self-hosted fonts (bundled woff2 in node_modules) so the build is hermetic —
+// no build-time or runtime fetch to Google Fonts. These register the
+// "Inter Variable" / "JetBrains Mono Variable" families referenced in
+// globals.css.
+import "@fontsource-variable/inter";
+import "@fontsource-variable/jetbrains-mono";
 import { AppShell } from "@/components/layout/AppShell";
 import "./globals.css";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-});
-
-const jetbrains = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-jetbrains",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: {
@@ -27,7 +20,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" data-theme="dark" suppressHydrationWarning>
-      <body className={`${inter.variable} ${jetbrains.variable}`}>
+      <body>
         <AppShell>{children}</AppShell>
       </body>
     </html>
