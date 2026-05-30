@@ -1,7 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { readFile, readdir, access } from "node:fs/promises";
 import { join } from "node:path";
-import matter from "gray-matter";
 import {
   MEMORY_DIR,
   ARTIFACTS_DIR,
@@ -9,7 +8,7 @@ import {
   CONTRACTS_DIR,
   PROJECTS_DIR,
 } from "@agent-workspace/core";
-import { getWorkspaceRoot } from "@agent-workspace/utils";
+import { getWorkspaceRoot, parseDocument } from "@agent-workspace/utils";
 
 /**
  * Check if a file exists at the given path.
@@ -120,7 +119,7 @@ export function registerStatusTools(server: McpServer): void {
         for (const f of mdFiles) {
           try {
             const raw = await readFile(join(projDir, f), "utf-8");
-            const { data } = matter(raw);
+            const { data } = parseDocument(raw);
             if (data.type !== "project") continue;
             const slug = f.replace(/\.md$/, "");
             const projInfo: Record<string, unknown> = {
@@ -141,7 +140,7 @@ export function registerStatusTools(server: McpServer): void {
               for (const tf of taskFiles.filter((t: string) => t.endsWith(".md"))) {
                 try {
                   const tRaw = await readFile(join(taskDir, tf), "utf-8");
-                  const { data: tData } = matter(tRaw);
+                  const { data: tData } = parseDocument(tRaw);
                   if (
                     tData.status === "in-progress" ||
                     tData.status === "blocked" ||
@@ -187,7 +186,7 @@ export function registerStatusTools(server: McpServer): void {
         for (const f of conFiles.filter((f) => f.endsWith(".md"))) {
           try {
             const raw = await readFile(join(conDir, f), "utf-8");
-            const { data } = matter(raw);
+            const { data } = parseDocument(raw);
             if (data.deadline && (data.status === "active" || data.status === "draft")) {
               if (new Date(data.deadline as string) < now) {
                 warnings.push(`Contract "${f.replace(/\.md$/, "")}" is past deadline`);
@@ -208,7 +207,7 @@ export function registerStatusTools(server: McpServer): void {
         for (const f of repFiles.filter((f) => f.endsWith(".md"))) {
           try {
             const raw = await readFile(join(repDir, f), "utf-8");
-            const { data } = matter(raw);
+            const { data } = parseDocument(raw);
             if (data.lastUpdated) {
               const daysSince = Math.floor(
                 (now.getTime() - new Date(data.lastUpdated as string).getTime()) / MS_PER_DAY

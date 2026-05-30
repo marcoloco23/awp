@@ -51,7 +51,7 @@ awp identity generate
 awp identity export
 ```
 
-Going deeper: [docs/QUICKSTART.md](docs/QUICKSTART.md), [docs/PLAN.md](docs/PLAN.md), [docs/ROADMAP.md](docs/ROADMAP.md), [docs/MANIFESTO.md](docs/MANIFESTO.md). Protocol spec: [spec/](spec/).
+Going deeper: [docs/QUICKSTART.md](docs/QUICKSTART.md), [docs/PLAN.md](docs/PLAN.md), [docs/ROADMAP.md](docs/ROADMAP.md), [docs/HARNESS.md](docs/HARNESS.md), [docs/MANIFESTO.md](docs/MANIFESTO.md). Protocol spec: [spec/](spec/).
 
 ## Why AWP?
 
@@ -89,6 +89,7 @@ AWP_WORKSPACE=/path/to/workspace npm run dev --workspace=packages/awp-dashboard
 
 Pages:
 - **Overview** — Agent identity, health warnings, workspace metrics, active tasks
+- **Organizations** — Recursive OGP org chart with capability scope, budget rollups, accountability, and structural-validation issues (with fixes)
 - **Projects** — Project list with progress bars, detail pages with kanban task boards
 - **Reputation** — Agent roster with score gauges, profile pages with radar charts
 - **Artifacts** — Knowledge browser with confidence bars, detail with provenance timelines

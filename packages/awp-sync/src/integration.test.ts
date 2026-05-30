@@ -299,6 +299,9 @@ describe.runIf(await hasGit())("GitRemoteTransport (requires git)", () => {
       await execFile("git", ["init", workdir]);
       await execFile("git", ["-C", workdir, "config", "user.email", "test@test"]);
       await execFile("git", ["-C", workdir, "config", "user.name", "Test"]);
+      // Throwaway test repo — never depend on ambient commit-signing config.
+      await execFile("git", ["-C", workdir, "config", "commit.gpgsign", "false"]);
+      await execFile("git", ["-C", workdir, "config", "tag.gpgsign", "false"]);
       await mkdir(join(workdir, ".awp"), { recursive: true });
       await mkdir(join(workdir, "artifacts"), { recursive: true });
       await writeFile(

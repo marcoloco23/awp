@@ -27,6 +27,71 @@ export interface AntiPatternDetection {
   evidence: string;
 }
 
+/** Resolved per-detector tuning, derived from manifesto frontmatter. */
+interface DetectorOptions {
+  threshold: number;
+  windowMs: number;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Frontmatter-driven configuration
+//
+// Thresholds and measurement windows are no longer hardcoded: they are read
+// from each manifesto anti-pattern entry. Precedence, highest first:
+//   1. explicit `threshold` / `window` frontmatter fields
+//   2. values parsed from the `detector` expression (e.g. "... > 10/day")
+//   3. the detector's built-in default
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Time-unit suffixes accepted in `detector` expressions and `window` fields. */
+const WINDOW_UNIT_MS: Record<string, number> = {
+  h: 3_600_000,
+  hour: 3_600_000,
+  hr: 3_600_000,
+  d: 86_400_000,
+  day: 86_400_000,
+  w: 604_800_000,
+  week: 604_800_000,
+  mo: 2_592_000_000, // 30 days
+  month: 2_592_000_000,
+};
+
+/**
+ * Parse a window specifier (e.g. "day", "7d", "12h", "2 weeks") into
+ * milliseconds. Returns undefined when it cannot be parsed.
+ */
+export function parseWindowMs(spec: string | undefined): number | undefined {
+  if (!spec) return undefined;
+  const m = spec.trim().toLowerCase().match(/^(\d+(?:\.\d+)?)?\s*([a-z]+)$/);
+  if (!m) return undefined;
+  const unit = m[2];
+  // Accept plural units ("days", "weeks") by stripping a trailing 's'.
+  const unitMs = WINDOW_UNIT_MS[unit] ?? WINDOW_UNIT_MS[unit.replace(/s$/, "")];
+  if (unitMs === undefined) return undefined;
+  const count = m[1] ? parseFloat(m[1]) : 1;
+  return count * unitMs;
+}
+
+/**
+ * Parse a `detector` expression like "artifact-creation-rate > 10/day" or
+ * "evaluator-diversity < 2", extracting the numeric threshold and (optional)
+ * measurement window.
+ */
+export function parseDetectorExpression(detector: string): {
+  threshold?: number;
+  windowMs?: number;
+} {
+  const result: { threshold?: number; windowMs?: number } = {};
+  const cmp = detector.match(/[<>]=?\s*(\d+(?:\.\d+)?)/);
+  if (cmp) result.threshold = parseFloat(cmp[1]);
+  const win = detector.match(/\/\s*(\d+(?:\.\d+)?)?\s*([a-z]+)/i);
+  if (win) {
+    const ms = parseWindowMs(`${win[1] ?? ""}${win[2]}`);
+    if (ms !== undefined) result.windowMs = ms;
+  }
+  return result;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Detectors
 // ─────────────────────────────────────────────────────────────────────────────
@@ -183,24 +248,99 @@ async function detectCoalitionCapture(
 // Main API
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Detector function type */
-type DetectorFn = (
-  agent: AgentAdapter,
-  ...args: number[]
-) => Promise<AntiPatternDetection | null>;
+/** A configurable detector and the metadata needed to resolve & tune it. */
+interface DetectorEntry {
+  /** Canonical detector id. */
+  id: string;
+  /**
+   * Alternative names that may appear as a manifesto pattern `id` or as the
+   * leading metric token of a `detector` expression. Lets author-facing names
+   * (e.g. "attention-hacking", "artifact-creation-rate") map to one detector.
+   */
+  aliases: string[];
+  /** Built-in fallbacks used when frontmatter does not specify them. */
+  defaults: DetectorOptions;
+  /** Whether this detector observes a time window (false ⇒ window ignored). */
+  windowed: boolean;
+  run: (agent: AgentAdapter, opts: DetectorOptions) => Promise<AntiPatternDetection | null>;
+}
 
-/** Map of detector IDs to their functions */
-const DETECTOR_REGISTRY: Record<string, DetectorFn> = {
-  "artifact-spam": detectArtifactSpam as DetectorFn,
-  "self-promotion": detectSelfPromotion as DetectorFn,
-  "coalition-capture": detectCoalitionCapture as DetectorFn,
-};
+const DETECTOR_REGISTRY: DetectorEntry[] = [
+  {
+    id: "artifact-spam",
+    aliases: ["attention-hacking", "artifact-creation-rate", "artifact-spam-rate"],
+    defaults: { threshold: 10, windowMs: 86_400_000 },
+    windowed: true,
+    run: (agent, { threshold, windowMs }) => detectArtifactSpam(agent, threshold, windowMs),
+  },
+  {
+    id: "self-promotion",
+    aliases: ["self-reported-positive-signals", "self-dealing"],
+    defaults: { threshold: 3, windowMs: 604_800_000 },
+    windowed: true,
+    run: (agent, { threshold, windowMs }) => detectSelfPromotion(agent, threshold, windowMs),
+  },
+  {
+    id: "coalition-capture",
+    aliases: ["evaluator-diversity", "evaluator-monoculture", "coalition"],
+    defaults: { threshold: 2, windowMs: 0 },
+    windowed: false,
+    run: (agent, { threshold }) => detectCoalitionCapture(agent, threshold),
+  },
+];
+
+/** Leading metric token of a detector expression, e.g. "artifact-creation-rate". */
+function detectorMetric(detector: string): string {
+  return detector.trim().split(/\s+/)[0]?.toLowerCase() ?? "";
+}
+
+/** Resolve a manifesto pattern to a registered detector via id, then aliases. */
+function resolveDetector(pattern: ManifestoConfig["antiPatterns"][number]): DetectorEntry | null {
+  const id = pattern.id.toLowerCase();
+  const metric = detectorMetric(pattern.detector);
+  return (
+    DETECTOR_REGISTRY.find(
+      (d) =>
+        d.id === id ||
+        d.aliases.includes(id) ||
+        d.id === metric ||
+        d.aliases.includes(metric)
+    ) ?? null
+  );
+}
+
+/**
+ * Resolve effective threshold/window for a pattern. Precedence: explicit
+ * frontmatter fields, then values parsed from the `detector` expression, then
+ * the detector's built-in defaults.
+ */
+function resolveOptions(
+  pattern: ManifestoConfig["antiPatterns"][number],
+  entry: DetectorEntry
+): DetectorOptions {
+  const parsed = parseDetectorExpression(pattern.detector);
+  const windowFromField = parseWindowMs(pattern.window);
+  return {
+    threshold: pattern.threshold ?? parsed.threshold ?? entry.defaults.threshold,
+    windowMs: entry.windowed
+      ? (windowFromField ?? parsed.windowMs ?? entry.defaults.windowMs)
+      : entry.defaults.windowMs,
+  };
+}
+
+const DEFAULT_PATTERNS: ManifestoConfig["antiPatterns"] = [
+  { id: "artifact-spam", detector: "artifact-creation-rate > 10/day", penalty: 0.2 },
+  { id: "self-promotion", detector: "self-reported-positive-signals > 3/week", penalty: 0.3 },
+  { id: "coalition-capture", detector: "evaluator-diversity < 2", penalty: 0.4 },
+];
 
 /**
  * Run all configured anti-pattern detectors for a set of agents.
  *
- * Uses the manifesto's antiPatterns configuration to determine which
- * detectors to run and what penalties to apply.
+ * The manifesto's `antiPatterns` frontmatter drives which detectors run, their
+ * penalties, and — now — their thresholds and measurement windows. Detector
+ * selection is alias-aware, so author-facing pattern names like
+ * "attention-hacking" resolve to the underlying detector.
  */
 export async function detectAntiPatterns(
   agents: AgentAdapter[],
@@ -208,25 +348,19 @@ export async function detectAntiPatterns(
 ): Promise<AntiPatternDetection[]> {
   const detections: AntiPatternDetection[] = [];
 
-  // If no anti-patterns configured, use defaults
-  const patterns = manifesto.antiPatterns.length > 0
-    ? manifesto.antiPatterns
-    : [
-        { id: "artifact-spam", detector: "artifact-spam-rate > 10/day", penalty: 0.2 },
-        { id: "self-promotion", detector: "self-reported-positive-signals > 3/week", penalty: 0.3 },
-        { id: "coalition-capture", detector: "evaluator-diversity < 2", penalty: 0.4 },
-      ];
+  const patterns =
+    manifesto.antiPatterns.length > 0 ? manifesto.antiPatterns : DEFAULT_PATTERNS;
 
   for (const agent of agents) {
     for (const pattern of patterns) {
-      // Match pattern ID to detector
-      const detectorId = pattern.id;
-      const detectorFn = DETECTOR_REGISTRY[detectorId];
-      if (!detectorFn) continue;
+      const entry = resolveDetector(pattern);
+      if (!entry) continue;
 
-      const detection = await detectorFn(agent);
+      const detection = await entry.run(agent, resolveOptions(pattern, entry));
       if (detection) {
-        // Use manifesto-configured penalty instead of default
+        // Report against the manifesto's configured id and penalty so detections
+        // are traceable back to the frontmatter that triggered them.
+        detection.patternId = pattern.id;
         detection.penalty = pattern.penalty;
         detections.push(detection);
       }

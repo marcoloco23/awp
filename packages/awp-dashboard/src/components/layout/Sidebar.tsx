@@ -13,10 +13,12 @@ import {
   FlaskConical,
   RefreshCw,
   Activity,
+  Network,
 } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
+  { href: "/org", label: "Organizations", icon: Network },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/reputation", label: "Reputation", icon: Shield },
   { href: "/artifacts", label: "Artifacts", icon: BookOpen },

@@ -7,6 +7,7 @@ import { AWP_VERSION, OGP_VERSION, ORGANIZATIONS_DIR, MANIFEST_PATH } from "@age
 import type { OrganizationFrontmatter, OrgKind } from "@agent-workspace/core";
 import {
   getWorkspaceRoot,
+  parseDocument,
   buildOrgTree,
   resolveCapabilities,
   rollupBudget,
@@ -55,7 +56,7 @@ async function loadAllOrganizations(root: string): Promise<OrganizationFrontmatt
   for (const f of files.filter((f) => f.endsWith(".md")).sort()) {
     try {
       const raw = await readFile(join(orgsDir, f), "utf-8");
-      const { data } = matter(raw);
+      const { data } = parseDocument(raw);
       if (data.type === "organization") {
         orgs.push(data as OrganizationFrontmatter);
       }
@@ -188,7 +189,7 @@ export function registerOrganizationTools(server: McpServer): void {
         const parentPath = join(orgsDir, `${parent}.md`);
         try {
           const raw = await readFile(parentPath, "utf-8");
-          const parsed = matter(raw);
+          const parsed = parseDocument(raw);
           const children = (parsed.data.children as string[]) ?? [];
           if (!children.includes(`org:${slug}`)) {
             children.push(`org:${slug}`);
@@ -266,7 +267,7 @@ export function registerOrganizationTools(server: McpServer): void {
 
       let parsed: { data: Json; content: string };
       try {
-        parsed = matter(await readFile(filePath, "utf-8"));
+        parsed = parseDocument(await readFile(filePath, "utf-8"));
       } catch {
         return err(`Organization "${slug}" not found.`);
       }
@@ -337,7 +338,7 @@ export function registerOrganizationTools(server: McpServer): void {
 
       let parsed: { data: Json; content: string };
       try {
-        parsed = matter(await readFile(filePath, "utf-8"));
+        parsed = parseDocument(await readFile(filePath, "utf-8"));
       } catch {
         return err(`Organization "${slug}" not found.`);
       }
@@ -391,7 +392,7 @@ export function registerOrganizationTools(server: McpServer): void {
 
       let parsed: { data: Json; content: string };
       try {
-        parsed = matter(await readFile(filePath, "utf-8"));
+        parsed = parseDocument(await readFile(filePath, "utf-8"));
       } catch {
         return err(`Organization "${slug}" not found.`);
       }
@@ -431,7 +432,7 @@ export function registerOrganizationTools(server: McpServer): void {
 
       let parsed: { data: Json; content: string };
       try {
-        parsed = matter(await readFile(filePath, "utf-8"));
+        parsed = parseDocument(await readFile(filePath, "utf-8"));
       } catch {
         return err(`Organization "${slug}" not found.`);
       }
@@ -477,7 +478,7 @@ export function registerOrganizationTools(server: McpServer): void {
 
       let parsed: { data: Json; content: string };
       try {
-        parsed = matter(await readFile(filePath, "utf-8"));
+        parsed = parseDocument(await readFile(filePath, "utf-8"));
       } catch {
         return err(`Organization "${slug}" not found.`);
       }
@@ -495,6 +496,40 @@ export function registerOrganizationTools(server: McpServer): void {
 
       await writeFile(filePath, matter.stringify(parsed.content, parsed.data), "utf-8");
       return ok(`Granted capability "${name}" to organization "${slug}"`);
+    },
+  );
+
+  // --- awp_org_capability_revoke ---
+  server.registerTool(
+    "awp_org_capability_revoke",
+    {
+      title: "Revoke Organization Capability",
+      description: "Revoke a previously granted capability from an organization.",
+      inputSchema: {
+        slug: z.string().describe("Organization slug"),
+        name: z.string().describe("Capability name to revoke"),
+      },
+    },
+    async ({ slug, name }) => {
+      const root = getWorkspaceRoot();
+      const filePath = join(root, ORGANIZATIONS_DIR, `${slug}.md`);
+
+      let parsed: { data: Json; content: string };
+      try {
+        parsed = parseDocument(await readFile(filePath, "utf-8"));
+      } catch {
+        return err(`Organization "${slug}" not found.`);
+      }
+
+      const capabilities = (parsed.data.capabilities as Json[]) ?? [];
+      const remaining = capabilities.filter((c) => c.name !== name);
+      if (remaining.length === capabilities.length) {
+        return err(`Capability "${name}" is not granted to "${slug}".`);
+      }
+
+      parsed.data.capabilities = remaining;
+      await writeFile(filePath, matter.stringify(parsed.content, parsed.data), "utf-8");
+      return ok(`Revoked capability "${name}" from organization "${slug}"`);
     },
   );
 
@@ -566,7 +601,7 @@ export function registerOrganizationTools(server: McpServer): void {
 
       let parsed: { data: Json; content: string };
       try {
-        parsed = matter(await readFile(filePath, "utf-8"));
+        parsed = parseDocument(await readFile(filePath, "utf-8"));
       } catch {
         return err(`Organization "${slug}" not found.`);
       }
@@ -626,7 +661,7 @@ export function registerOrganizationTools(server: McpServer): void {
 
       let parsed: { data: Json; content: string };
       try {
-        parsed = matter(await readFile(filePath, "utf-8"));
+        parsed = parseDocument(await readFile(filePath, "utf-8"));
       } catch {
         return err(`Organization "${slug}" not found.`);
       }
@@ -676,7 +711,7 @@ export function registerOrganizationTools(server: McpServer): void {
 
       let parsed: { data: Json; content: string };
       try {
-        parsed = matter(await readFile(filePath, "utf-8"));
+        parsed = parseDocument(await readFile(filePath, "utf-8"));
       } catch {
         return err(`Organization "${slug}" not found.`);
       }
@@ -716,7 +751,7 @@ export function registerOrganizationTools(server: McpServer): void {
 
       let parsed: { data: Json; content: string };
       try {
-        parsed = matter(await readFile(filePath, "utf-8"));
+        parsed = parseDocument(await readFile(filePath, "utf-8"));
       } catch {
         return err(`Organization "${slug}" not found.`);
       }

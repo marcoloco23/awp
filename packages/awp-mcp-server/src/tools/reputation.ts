@@ -7,6 +7,7 @@ import { AWP_VERSION, RDP_VERSION, REPUTATION_DIR } from "@agent-workspace/core"
 import type { ReputationDimension } from "@agent-workspace/core";
 import {
   getWorkspaceRoot,
+  parseDocument,
   getAgentDid,
   computeDecayedScore,
   updateDimension,
@@ -47,7 +48,7 @@ export function registerReputationTools(server: McpServer): void {
         for (const f of files.filter((f) => f.endsWith(".md")).sort()) {
           try {
             const raw = await readFile(join(repDir, f), "utf-8");
-            const { data } = matter(raw);
+            const { data } = parseDocument(raw);
             if (data.type !== "reputation-profile") continue;
             const signals = data.signals as unknown[] | undefined;
             const dimensions = data.dimensions as Record<string, unknown> | undefined;
@@ -73,7 +74,7 @@ export function registerReputationTools(server: McpServer): void {
       const path = join(root, REPUTATION_DIR, `${slug}.md`);
       try {
         const raw = await readFile(path, "utf-8");
-        const { data, content } = matter(raw);
+        const { data, content } = parseDocument(raw);
 
         // Apply decay to scores
         const now = new Date();
@@ -173,7 +174,7 @@ export function registerReputationTools(server: McpServer): void {
 
       try {
         const raw = await readFile(filePath, "utf-8");
-        fileData = matter(raw);
+        fileData = parseDocument(raw);
       } catch {
         // New profile
         if (!newDid || !newName) {

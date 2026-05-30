@@ -188,6 +188,18 @@ export interface ManifestoConfig {
     id: string;
     detector: string;
     penalty: number;
+    /**
+     * Detection threshold override. When omitted, the threshold is parsed from
+     * the `detector` expression (e.g. "artifact-creation-rate > 10/day" → 10),
+     * falling back to the detector's built-in default.
+     */
+    threshold?: number;
+    /**
+     * Measurement window override (e.g. "day", "week", "12h"). When omitted, the
+     * window is parsed from the `detector` expression, falling back to the
+     * detector's built-in default.
+     */
+    window?: string;
   }>;
   /** Success criteria for experiment evaluation */
   successCriteria: Array<{

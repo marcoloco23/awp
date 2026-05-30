@@ -1,8 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import matter from "gray-matter";
-import { getWorkspaceRoot } from "@agent-workspace/utils";
+import { getWorkspaceRoot, parseDocument } from "@agent-workspace/utils";
 
 /**
  * Register identity-related tools: read_identity, read_soul, read_user
@@ -22,7 +21,7 @@ export function registerIdentityTools(server: McpServer): void {
       const path = join(root, "IDENTITY.md");
       try {
         const raw = await readFile(path, "utf-8");
-        const { data, content } = matter(raw);
+        const { data, content } = parseDocument(raw);
         return {
           content: [
             {
@@ -54,7 +53,7 @@ export function registerIdentityTools(server: McpServer): void {
       const path = join(root, "SOUL.md");
       try {
         const raw = await readFile(path, "utf-8");
-        const { data, content } = matter(raw);
+        const { data, content } = parseDocument(raw);
         return {
           content: [
             {
@@ -85,7 +84,7 @@ export function registerIdentityTools(server: McpServer): void {
       const path = join(root, "USER.md");
       try {
         const raw = await readFile(path, "utf-8");
-        const { data, content } = matter(raw);
+        const { data, content } = parseDocument(raw);
         return {
           content: [
             {

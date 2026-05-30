@@ -594,6 +594,38 @@ describe("organization tools", () => {
     expect(deploy?.source).toBe("org:acme");
   });
 
+  it("revokes a granted capability and errors on an unknown one", async () => {
+    const { handlers, server } = createFakeServer();
+    registerOrganizationTools(server as never);
+    await buildChart(handlers);
+
+    await call(handlers, "awp_org_capability_grant", {
+      slug: "acme",
+      name: "deploy:production",
+      irreversible: true,
+      requiresApproval: true,
+    });
+
+    const revoke = await call(handlers, "awp_org_capability_revoke", {
+      slug: "acme",
+      name: "deploy:production",
+    });
+    expect(revoke.isError).toBe(false);
+
+    // It is gone from the effective set after revocation.
+    const resolved = await call(handlers, "awp_org_capability_resolve", { slug: "acme" });
+    const caps = JSON.parse(resolved.text).effective as Array<Record<string, unknown>>;
+    expect(caps.find((c) => c.name === "deploy:production")).toBeUndefined();
+
+    // Revoking a capability that isn't granted is an error.
+    const missing = await call(handlers, "awp_org_capability_revoke", {
+      slug: "acme",
+      name: "deploy:production",
+    });
+    expect(missing.isError).toBe(true);
+    expect(missing.text).toContain("not granted");
+  });
+
   it("rejects an irreversible capability without approval", async () => {
     const { handlers, server } = createFakeServer();
     registerOrganizationTools(server as never);

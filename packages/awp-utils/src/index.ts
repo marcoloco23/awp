@@ -32,6 +32,7 @@ export {
 
 // Frontmatter utilities
 export {
+  parseDocument,
   parseWorkspaceFile,
   serializeWorkspaceFile,
   writeWorkspaceFile,

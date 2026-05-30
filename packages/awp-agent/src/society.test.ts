@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdir, writeFile, rm, access, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import matter from "gray-matter";
 import { generateSoulContent, parseManifesto, SocietyManager } from "./society.js";
@@ -88,7 +89,10 @@ describe("parseManifesto", () => {
   });
 
   it("parses the bundled baseline.md template", async () => {
-    const path = "/Users/marcsperzel/code/ai-ml/awp/templates/manifestos/baseline.md";
+    // Resolve from this test file's location (packages/awp-agent/src) up to the
+    // repo root, so the test is portable across machines and CI.
+    const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+    const path = join(repoRoot, "templates/manifestos/baseline.md");
     const cfg = await parseManifesto(path);
     expect(typeof cfg.id).toBe("string");
     expect(cfg.id.length).toBeGreaterThan(0);

@@ -349,6 +349,25 @@ describe("validateOrgStructure", () => {
     const issues = validateOrgStructure([org("a", "org:b"), org("b", "org:a")]);
     expect(issues.some((i) => i.message.includes("Cycle"))).toBe(true);
   });
+
+  it("attaches actionable remediation to every issue", () => {
+    const orgs = [
+      org("a", null, "org", {
+        capabilities: [{ name: "deploy", irreversible: true, requiresApproval: false }],
+      }),
+      org("b", null), // second root
+    ];
+    const issues = validateOrgStructure(orgs);
+    expect(issues.length).toBeGreaterThan(0);
+    // Each issue carries a fix, and command-style fixes reference bare slugs
+    // (no "org:" prefix) so they can be pasted straight into `awp org ...`.
+    for (const issue of issues) {
+      expect(issue.remediation && issue.remediation.length).toBeTruthy();
+    }
+    const capIssue = issues.find((i) => i.message.includes("irreversible"));
+    expect(capIssue?.remediation).toContain("awp org capability grant a deploy");
+    expect(capIssue?.remediation).not.toContain("org:a");
+  });
 });
 
 // --- reputation gates -------------------------------------------------------

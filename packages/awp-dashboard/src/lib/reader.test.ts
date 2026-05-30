@@ -17,9 +17,13 @@ vi.mock("gray-matter", () => ({
   default: vi.fn(),
 }));
 
-vi.mock("@agent-workspace/utils", () => ({
-  computeDecayedScore: vi.fn((_dim: unknown) => 0.75),
-}));
+vi.mock("@agent-workspace/utils", async () => {
+  // Keep the real OGP tree/summary/validation helpers (readOrgChart relies on
+  // them); only stub the time-decay math for deterministic reputation tests.
+  const actual =
+    await vi.importActual<typeof import("@agent-workspace/utils")>("@agent-workspace/utils");
+  return { ...actual, computeDecayedScore: vi.fn((_dim: unknown) => 0.75) };
+});
 
 import { readFile, readdir, access } from "node:fs/promises";
 import matter from "gray-matter";
@@ -43,6 +47,7 @@ import {
   readExperiment,
   computeCycleDataPoints,
   computeReputationTimeline,
+  readOrgChart,
 } from "./reader";
 
 const mockReadFile = vi.mocked(readFile);
@@ -1166,5 +1171,102 @@ describe("computeReputationTimeline", () => {
     // In cycle 0, only agent-01 has changes; agent-02 should stay at 50
     const result = computeReputationTimeline(sampleExperimentResult as never);
     expect(result.points[1]["did:awp:agent-02"]).toBe(50);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// readOrgChart (OGP)
+// ---------------------------------------------------------------------------
+
+describe("readOrgChart", () => {
+  function orgFm(over: Record<string, unknown>) {
+    return {
+      awp: "0.4.0",
+      ogp: "1.0",
+      type: "organization",
+      status: "active",
+      mission: "m",
+      accountableAgent: "did:awp:lead",
+      humanOwner: "user:marc",
+      members: [],
+      capabilities: [],
+      children: [],
+      parent: null,
+      ...over,
+    };
+  }
+
+  it("returns an empty chart when there are no organizations", async () => {
+    mockReaddir.mockResolvedValue([] as never);
+    const chart = await readOrgChart();
+    expect(chart).toEqual({ unitCount: 0, roots: [], issues: [] });
+  });
+
+  it("builds a nested tree with rolled-up counts and inherited capabilities", async () => {
+    mockReaddir.mockResolvedValue(["acme.md", "engineering.md"] as never);
+    // parseFile reads the file then runs matter() on the contents; key the
+    // mock off the path so each file yields the right frontmatter.
+    mockReadFile.mockImplementation(((p: string) =>
+      Promise.resolve(p.includes("acme") ? "acme" : "engineering")) as never);
+    mockMatter.mockImplementation(((raw: string) => {
+      if (raw === "acme") {
+        return {
+          data: orgFm({
+            id: "org:acme",
+            name: "Acme",
+            kind: "org",
+            children: ["org:engineering"],
+            capabilities: [{ name: "deploy:prod", irreversible: true, requiresApproval: true }],
+          }),
+          content: "",
+        } as never;
+      }
+      return {
+        data: orgFm({
+          id: "org:engineering",
+          name: "Engineering",
+          kind: "division",
+          parent: "org:acme",
+        }),
+        content: "",
+      } as never;
+    }) as never);
+
+    const chart = await readOrgChart();
+
+    expect(chart.unitCount).toBe(2);
+    expect(chart.roots).toHaveLength(1);
+    const acme = chart.roots[0];
+    expect(acme.id).toBe("org:acme");
+    expect(acme.slug).toBe("acme");
+    expect(acme.directChildren).toBe(1);
+    expect(acme.totalDescendants).toBe(1);
+    expect(acme.ownCapabilityCount).toBe(1);
+
+    const eng = acme.children[0];
+    expect(eng.id).toBe("org:engineering");
+    expect(eng.depth).toBe(1);
+    // deploy:prod is inherited from Acme, so engineering's effective > own.
+    expect(eng.ownCapabilityCount).toBe(0);
+    expect(eng.effectiveCapabilityCount).toBe(1);
+  });
+
+  it("surfaces structural issues with remediation (e.g. two roots)", async () => {
+    mockReaddir.mockResolvedValue(["a.md", "b.md"] as never);
+    mockReadFile.mockImplementation(((p: string) =>
+      Promise.resolve(p.includes("a.md") ? "a" : "b")) as never);
+    mockMatter.mockImplementation(((raw: string) => ({
+      data:
+        raw === "a"
+          ? orgFm({ id: "org:a", name: "A", kind: "org" })
+          : orgFm({ id: "org:b", name: "B", kind: "org" }),
+      content: "",
+    })) as never);
+
+    const chart = await readOrgChart();
+    expect(chart.roots).toHaveLength(2);
+    const rootIssues = chart.issues.filter((i) => i.message.includes("Multiple root"));
+    expect(rootIssues.length).toBe(2);
+    expect(rootIssues[0].remediation).toContain("awp org update");
   });
 });
