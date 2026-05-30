@@ -21,6 +21,11 @@ import { computeDecayedScore } from "./reputation.js";
 /** Ranking of org tiers — higher number = higher in the chart. */
 const KIND_RANK: Record<OrgKind, number> = { org: 3, division: 2, team: 1 };
 
+/** Strip the `org:` prefix from an org id to recover its slug (for remediation hints). */
+function orgIdToSlugLocal(orgId: string): string {
+  return orgId.startsWith("org:") ? orgId.slice("org:".length) : orgId;
+}
+
 /** Budget dimensions tracked by rollup/check operations. */
 const BUDGET_KEYS = ["tokens", "toolCalls", "spend"] as const;
 
@@ -82,6 +87,13 @@ export interface OrgValidationIssue {
   orgId: string;
   severity: "error" | "warning";
   message: string;
+  /**
+   * Concrete fix for this issue — ideally the exact command or edit to run.
+   * Surfaced alongside the message so an agent (or human) can act without
+   * re-deriving the remedy from the error text. ("Harness engineering":
+   * error messages should carry their own remediation.)
+   */
+  remediation?: string;
 }
 
 /** A condensed summary of an organization unit. */
@@ -487,6 +499,8 @@ export function validateOrgStructure(orgs: OrganizationFrontmatter[]): OrgValida
       orgId: "",
       severity: "error",
       message: "No root organization — every unit has a parent, so the chart has no top",
+      remediation:
+        "Set parent to null on exactly one top-level unit: `awp org update <slug> --parent ''` (or edit its frontmatter).",
     });
   } else if (roots.length > 1) {
     for (const root of roots) {
@@ -494,6 +508,7 @@ export function validateOrgStructure(orgs: OrganizationFrontmatter[]): OrgValida
         orgId: root.id,
         severity: "error",
         message: `Multiple root organizations — "${root.id}" has no parent (expected exactly one root)`,
+        remediation: `Give "${root.id}" a parent so the chart has a single root: \`awp org update ${orgIdToSlugLocal(root.id)} --parent <parent-slug>\`.`,
       });
     }
   }
@@ -504,6 +519,7 @@ export function validateOrgStructure(orgs: OrganizationFrontmatter[]): OrgValida
         orgId: org.id,
         severity: "error",
         message: `Parent "${org.parent}" does not resolve to an existing organization`,
+        remediation: `Create the missing parent (\`awp org create ${orgIdToSlugLocal(org.parent)}\`) or repoint "${org.id}" at an existing unit (\`awp org update ${orgIdToSlugLocal(org.id)} --parent <slug>\`).`,
       });
     }
 
@@ -513,6 +529,7 @@ export function validateOrgStructure(orgs: OrganizationFrontmatter[]): OrgValida
           orgId: org.id,
           severity: "error",
           message: `Child "${childId}" does not resolve to an existing organization`,
+          remediation: `Remove the dangling child from "${org.id}" children[] or create "${childId}" (\`awp org create ${orgIdToSlugLocal(childId)}\`).`,
         });
       }
     }
@@ -526,6 +543,7 @@ export function validateOrgStructure(orgs: OrganizationFrontmatter[]): OrgValida
           orgId: org.id,
           severity: "warning",
           message: `"${childId}" declares "${org.id}" as parent but is missing from children[] (denormalized drift)`,
+          remediation: `Add "${childId}" to "${org.id}" children[] (recreating the child via \`awp org create\` keeps both sides in sync automatically).`,
         });
       }
     }
@@ -535,6 +553,7 @@ export function validateOrgStructure(orgs: OrganizationFrontmatter[]): OrgValida
           orgId: org.id,
           severity: "warning",
           message: `children[] lists "${childId}" but it does not declare "${org.id}" as parent (denormalized drift)`,
+          remediation: `Either set "${childId}" parent to "${org.id}" (\`awp org update ${orgIdToSlugLocal(childId)} --parent ${orgIdToSlugLocal(org.id)}\`) or drop it from "${org.id}" children[].`,
         });
       }
     }
@@ -546,6 +565,7 @@ export function validateOrgStructure(orgs: OrganizationFrontmatter[]): OrgValida
           orgId: org.id,
           severity: "error",
           message: `Capability "${cap.name}" is irreversible but requiresApproval is false`,
+          remediation: `Re-grant with approval required: \`awp org capability grant ${orgIdToSlugLocal(org.id)} ${cap.name} --irreversible --requires-approval\`.`,
         });
       }
     }
@@ -558,6 +578,7 @@ export function validateOrgStructure(orgs: OrganizationFrontmatter[]): OrgValida
           orgId: org.id,
           severity: "warning",
           message: `Kind "${org.kind}" is not below parent kind "${parent.kind}" — tiers should descend org > division > team`,
+          remediation: `Lower this unit's kind below "${parent.kind}", or reparent it under a higher-tier unit. Tiers must descend org > division > team.`,
         });
       }
     }
@@ -571,6 +592,7 @@ export function validateOrgStructure(orgs: OrganizationFrontmatter[]): OrgValida
         orgId: org.id,
         severity: "warning",
         message: `accountableAgent "${org.accountableAgent}" is not among this unit's members`,
+        remediation: `Add the accountable agent as a member: \`awp org member add ${orgIdToSlugLocal(org.id)} ${org.accountableAgent} --seat accountable\`.`,
       });
     }
   }
@@ -580,6 +602,7 @@ export function validateOrgStructure(orgs: OrganizationFrontmatter[]): OrgValida
       orgId: cycle[0],
       severity: "error",
       message: `Cycle in organization hierarchy: ${cycle.join(" -> ")}`,
+      remediation: `Break the loop by repointing one unit's parent off the cycle, e.g. \`awp org update ${orgIdToSlugLocal(cycle[0])} --parent <slug-outside-cycle>\`.`,
     });
   }
 

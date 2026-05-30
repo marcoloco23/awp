@@ -927,6 +927,7 @@ export async function orgValidateCommand(): Promise<void> {
   for (const issue of issues) {
     const tag = issue.severity === "error" ? "[ERROR]" : "[WARN] ";
     console.log(`  ${tag} ${issue.orgId || "(structure)"} — ${issue.message}`);
+    if (issue.remediation) console.log(`          fix: ${issue.remediation}`);
   }
   console.log("");
   console.log(`${errors.length} error(s), ${warnings.length} warning(s).`);
