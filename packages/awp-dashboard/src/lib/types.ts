@@ -222,3 +222,40 @@ export interface SyncOverview {
   totalArtifactsSynced: number;
   totalSignalsSynced: number;
 }
+
+// --- Organizations (OGP) ---------------------------------------------------
+
+export interface OrgUnitNode {
+  id: string;
+  slug: string;
+  name: string;
+  kind: "org" | "division" | "team";
+  status: string;
+  mission: string;
+  accountableAgent: string;
+  humanOwner: string;
+  memberCount: number;
+  directChildren: number;
+  totalDescendants: number;
+  /** Capabilities granted directly on this unit. */
+  ownCapabilityCount: number;
+  /** Effective capabilities (own + inherited from ancestors). */
+  effectiveCapabilityCount: number;
+  overBudget: boolean;
+  exceededBudgetLines: string[];
+  depth: number;
+  children: OrgUnitNode[];
+}
+
+export interface OrgValidationIssueSummary {
+  orgId: string;
+  severity: "error" | "warning";
+  message: string;
+  remediation?: string;
+}
+
+export interface OrgChart {
+  unitCount: number;
+  roots: OrgUnitNode[];
+  issues: OrgValidationIssueSummary[];
+}

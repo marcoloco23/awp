@@ -89,6 +89,7 @@ AWP_WORKSPACE=/path/to/workspace npm run dev --workspace=packages/awp-dashboard
 
 Pages:
 - **Overview** — Agent identity, health warnings, workspace metrics, active tasks
+- **Organizations** — Recursive OGP org chart with capability scope, budget rollups, accountability, and structural-validation issues (with fixes)
 - **Projects** — Project list with progress bars, detail pages with kanban task boards
 - **Reputation** — Agent roster with score gauges, profile pages with radar charts
 - **Artifacts** — Knowledge browser with confidence bars, detail with provenance timelines

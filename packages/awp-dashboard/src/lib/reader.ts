@@ -7,17 +7,25 @@ import {
   ARTIFACTS_DIR,
   CONTRACTS_DIR,
   MEMORY_DIR,
+  ORGANIZATIONS_DIR,
   SYNC_REMOTES_FILE,
   SYNC_STATE_DIR,
   SYNC_CONFLICTS_DIR,
 } from "@agent-workspace/core";
-import { computeDecayedScore } from "@agent-workspace/utils";
+import {
+  computeDecayedScore,
+  buildOrgTree,
+  getOrgSummary,
+  resolveCapabilities,
+  validateOrgStructure,
+} from "@agent-workspace/utils";
 import type {
   IdentityFrontmatter,
   SoulFrontmatter,
   MemoryLongtermFrontmatter,
   WorkspaceManifest,
   ReputationDimension,
+  OrganizationFrontmatter,
 } from "@agent-workspace/core";
 import type {
   ProjectSummary,
@@ -42,6 +50,8 @@ import type {
   SyncRemoteSummary,
   SyncConflictSummary,
   SyncOverview,
+  OrgUnitNode,
+  OrgChart,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -105,7 +115,10 @@ export async function readManifest(): Promise<WorkspaceManifest | null> {
   }
 }
 
-export async function readIdentity(): Promise<{ frontmatter: IdentityFrontmatter; body: string } | null> {
+export async function readIdentity(): Promise<{
+  frontmatter: IdentityFrontmatter;
+  body: string;
+} | null> {
   return parseFile<IdentityFrontmatter>(join(getRoot(), "IDENTITY.md"));
 }
 
@@ -255,7 +268,7 @@ export async function listArtifacts(tagFilter?: string): Promise<ArtifactSummary
     const parsed = await parseFile<Record<string, unknown>>(join(dir, f));
     if (!parsed || parsed.frontmatter.type !== "knowledge-artifact") continue;
     const fm = parsed.frontmatter;
-    if (tagFilter && !(fm.tags as string[] || []).includes(tagFilter)) continue;
+    if (tagFilter && !((fm.tags as string[]) || []).includes(tagFilter)) continue;
     artifacts.push({
       slug: f.replace(/\.md$/, ""),
       title: (fm.title as string) || f.replace(/\.md$/, ""),
@@ -296,7 +309,9 @@ export async function listContracts(statusFilter?: string): Promise<ContractSumm
     const fm = parsed.frontmatter;
     if (statusFilter && fm.status !== statusFilter) continue;
 
-    const evaluation = fm.evaluation as { result?: Record<string, number>; criteria?: Record<string, number> } | undefined;
+    const evaluation = fm.evaluation as
+      | { result?: Record<string, number>; criteria?: Record<string, number> }
+      | undefined;
     const hasEval = !!evaluation?.result;
     let weightedScore: number | undefined;
     if (hasEval && evaluation?.result && evaluation?.criteria) {
@@ -343,7 +358,8 @@ export async function readMemoryLogs(limit = 14): Promise<DailyLogSummary[]> {
     const parsed = await parseFile<Record<string, unknown>>(join(dir, f));
     if (!parsed) continue;
     const fm = parsed.frontmatter;
-    const entries = (fm.entries as Array<{ time?: string; content: string; tags?: string[] }>) || [];
+    const entries =
+      (fm.entries as Array<{ time?: string; content: string; tags?: string[] }>) || [];
     logs.push({
       date: (fm.date as string) || f.replace(/\.md$/, ""),
       entryCount: entries.length,
@@ -353,7 +369,10 @@ export async function readMemoryLogs(limit = 14): Promise<DailyLogSummary[]> {
   return logs;
 }
 
-export async function readLongTermMemory(): Promise<{ frontmatter: MemoryLongtermFrontmatter; body: string } | null> {
+export async function readLongTermMemory(): Promise<{
+  frontmatter: MemoryLongtermFrontmatter;
+  body: string;
+} | null> {
   return parseFile<MemoryLongtermFrontmatter>(join(getRoot(), "MEMORY.md"));
 }
 
@@ -369,7 +388,8 @@ export async function computeWorkspaceHealth(): Promise<WorkspaceHealth> {
 
   if (!(await fileExists(join(root, "IDENTITY.md")))) warnings.push("IDENTITY.md missing");
   if (!(await fileExists(join(root, "SOUL.md")))) warnings.push("SOUL.md missing");
-  if (!(await fileExists(join(root, ".awp", "workspace.json")))) warnings.push(".awp/workspace.json missing");
+  if (!(await fileExists(join(root, ".awp", "workspace.json"))))
+    warnings.push(".awp/workspace.json missing");
 
   // Check contract deadlines
   const conDir = join(root, CONTRACTS_DIR);
@@ -391,7 +411,9 @@ export async function computeWorkspaceHealth(): Promise<WorkspaceHealth> {
     if (!p) continue;
     const fm = p.frontmatter;
     if (fm.lastUpdated) {
-      const days = Math.floor((now.getTime() - new Date(fm.lastUpdated as string).getTime()) / MS_PER_DAY);
+      const days = Math.floor(
+        (now.getTime() - new Date(fm.lastUpdated as string).getTime()) / MS_PER_DAY
+      );
       if (days > 30) {
         warnings.push(`${f.replace(/\.md$/, "")} reputation decaying (no signal in ${days} days)`);
       }
@@ -498,7 +520,9 @@ export async function listSocieties(statusFilter?: string): Promise<SocietySumma
     }
   }
 
-  return societies.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return societies.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 }
 
 export async function readSocietyDetail(societyId: string): Promise<SocietyDetail | null> {
@@ -562,13 +586,13 @@ export async function readSocietyDetail(societyId: string): Promise<SocietyDetai
 
   // Attach latest reputation to agents from most recent experiment
   const sortedExps = [...experiments].sort(
-    (a, b) => new Date(b.endedAt).getTime() - new Date(a.endedAt).getTime(),
+    (a, b) => new Date(b.endedAt).getTime() - new Date(a.endedAt).getTime()
   );
   if (sortedExps.length > 0) {
     try {
       const latestRaw = await readFile(
         join(societyDir, "metrics", sortedExps[0].experimentId + ".json"),
-        "utf-8",
+        "utf-8"
       );
       const latest: ExperimentResult = JSON.parse(latestRaw);
       for (const agent of agents) {
@@ -586,21 +610,18 @@ export async function readSocietyDetail(societyId: string): Promise<SocietyDetai
     config,
     agents,
     experiments: experiments.sort(
-      (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
+      (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
     ),
   };
 }
 
 export async function readExperiment(
   societyId: string,
-  experimentId: string,
+  experimentId: string
 ): Promise<ExperimentResult | null> {
   const root = getSocietiesRoot();
   try {
-    const raw = await readFile(
-      join(root, societyId, "metrics", experimentId + ".json"),
-      "utf-8",
-    );
+    const raw = await readFile(join(root, societyId, "metrics", experimentId + ".json"), "utf-8");
     return JSON.parse(raw) as ExperimentResult;
   } catch {
     return null;
@@ -631,7 +652,12 @@ export async function readSyncOverview(): Promise<SyncOverview> {
   // Load remote registry
   try {
     const raw = await readFile(join(root, SYNC_REMOTES_FILE), "utf-8");
-    const registry = JSON.parse(raw) as { remotes: Record<string, { url: string; transport: string; added: string; lastSync: string | null }> };
+    const registry = JSON.parse(raw) as {
+      remotes: Record<
+        string,
+        { url: string; transport: string; added: string; lastSync: string | null }
+      >;
+    };
 
     for (const [name, remote] of Object.entries(registry.remotes)) {
       // Load per-remote sync state
@@ -640,7 +666,10 @@ export async function readSyncOverview(): Promise<SyncOverview> {
 
       try {
         const stateRaw = await readFile(join(root, SYNC_STATE_DIR, `${name}.json`), "utf-8");
-        const state = JSON.parse(stateRaw) as { artifacts: Record<string, unknown>; signals: { signalCount: number } };
+        const state = JSON.parse(stateRaw) as {
+          artifacts: Record<string, unknown>;
+          signals: { signalCount: number };
+        };
         trackedArtifacts = Object.keys(state.artifacts).length;
         signalsSynced = state.signals.signalCount;
       } catch {
@@ -703,7 +732,7 @@ export async function readExperimentComparison(
   societyA: string,
   experimentA: string,
   societyB: string,
-  experimentB: string,
+  experimentB: string
 ): Promise<{ expA: ExperimentResult; expB: ExperimentResult } | null> {
   const expA = await readExperiment(societyA, experimentA);
   const expB = await readExperiment(societyB, experimentB);
@@ -756,4 +785,68 @@ export function computeReputationTimeline(experiment: ExperimentResult): Reputat
   }
 
   return { points, agents };
+}
+
+// ---------------------------------------------------------------------------
+// Organizations (OGP)
+// ---------------------------------------------------------------------------
+
+/**
+ * Read the workspace org chart: a forest of organization units with rolled-up
+ * member/capability/budget data and structural validation issues. Reuses the
+ * OGP tree, summary, capability-resolution, and validation utilities so the
+ * dashboard view matches `awp org tree` / `awp org validate` exactly.
+ */
+export async function readOrgChart(): Promise<OrgChart> {
+  const dir = join(getRoot(), ORGANIZATIONS_DIR);
+  const files = await listMdFiles(dir);
+
+  const orgs: OrganizationFrontmatter[] = [];
+  for (const f of files) {
+    const parsed = await parseFile<OrganizationFrontmatter>(join(dir, f));
+    if (parsed && parsed.frontmatter.type === "organization") {
+      orgs.push(parsed.frontmatter);
+    }
+  }
+
+  if (orgs.length === 0) {
+    return { unitCount: 0, roots: [], issues: [] };
+  }
+
+  const tree = buildOrgTree(orgs);
+  const issues = validateOrgStructure(orgs);
+
+  const build = (id: string, depth: number): OrgUnitNode => {
+    const org = tree.byId.get(id)!;
+    const summary = getOrgSummary(tree, id);
+    const effective = resolveCapabilities(tree, id).effective;
+    return {
+      id,
+      slug: id.replace(/^org:/, ""),
+      name: org.name,
+      kind: org.kind,
+      status: org.status,
+      mission: org.mission,
+      accountableAgent: org.accountableAgent,
+      humanOwner: org.humanOwner,
+      memberCount: summary.memberCount,
+      directChildren: summary.directChildren,
+      totalDescendants: summary.totalDescendants,
+      ownCapabilityCount: org.capabilities?.length ?? 0,
+      effectiveCapabilityCount: effective.length,
+      overBudget: summary.budget.overBudget,
+      exceededBudgetLines: summary.budget.exceededLines,
+      depth,
+      children: (tree.childrenOf.get(id) ?? []).map((childId) => build(childId, depth + 1)),
+    };
+  };
+
+  // Roots = units with no parent; render each as a tree. Orphans (parent set but
+  // missing) are surfaced as validation issues and also rendered as roots so
+  // nothing silently disappears from the view.
+  const roots: OrgUnitNode[] = orgs
+    .filter((org) => !org.parent || !tree.byId.has(org.parent))
+    .map((org) => build(org.id, 0));
+
+  return { unitCount: orgs.length, roots, issues };
 }
