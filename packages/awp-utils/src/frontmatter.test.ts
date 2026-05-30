@@ -3,6 +3,7 @@ import { mkdir, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
+  parseDocument,
   parseWorkspaceFile,
   serializeWorkspaceFile,
   writeWorkspaceFile,
@@ -62,6 +63,30 @@ describe("parseWorkspaceFile", () => {
 
   it("throws when file does not exist", async () => {
     await expect(parseWorkspaceFile(join(root, "missing.md"))).rejects.toThrow();
+  });
+});
+
+describe("parseDocument (cache safety)", () => {
+  it("does not leak mutations across reads of equal content", () => {
+    // gray-matter caches by content and returns a shallow copy whose `data` is
+    // shared with the cached entry. Mutating one parse must not corrupt a later
+    // parse of an identical string — otherwise read-modify-write callers poison
+    // the cache (e.g. a revoked list item reappearing on the next read).
+    const doc = `---\ntype: org\nitems:\n  - a\n---\n\n# Body\n`;
+
+    const first = parseDocument(doc);
+    (first.data.items as string[]).push("b");
+    first.data.extra = "mutated";
+
+    const second = parseDocument(doc);
+    expect(second.data.items).toEqual(["a"]);
+    expect(second.data.extra).toBeUndefined();
+  });
+
+  it("parses frontmatter and body like gray-matter", () => {
+    const { data, content } = parseDocument(`---\ntype: x\nn: 2\n---\n\n# Hi\n`);
+    expect(data).toEqual({ type: "x", n: 2 });
+    expect(content.trim()).toBe("# Hi");
   });
 });
 

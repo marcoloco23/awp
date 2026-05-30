@@ -6,6 +6,7 @@ import * as z from "zod";
 import { AWP_VERSION, CDP_VERSION, PROJECTS_DIR } from "@agent-workspace/core";
 import {
   getWorkspaceRoot,
+  parseDocument,
   getAgentDid,
   analyzeGraph,
   getTaskSlug,
@@ -68,7 +69,7 @@ export function registerTaskTools(server: McpServer): void {
       let projData: { data: Record<string, unknown>; content: string };
       try {
         const raw = await readFile(projPath, "utf-8");
-        projData = matter(raw);
+        projData = parseDocument(raw);
       } catch {
         return {
           content: [{ type: "text" as const, text: `Project "${projectSlug}" not found.` }],
@@ -167,7 +168,7 @@ export function registerTaskTools(server: McpServer): void {
       let taskData: { data: Record<string, unknown>; content: string };
       try {
         const raw = await readFile(taskPath, "utf-8");
-        taskData = matter(raw);
+        taskData = parseDocument(raw);
       } catch {
         return {
           content: [
@@ -208,7 +209,7 @@ export function registerTaskTools(server: McpServer): void {
         const projPath = join(root, PROJECTS_DIR, `${projectSlug}.md`);
         try {
           const projRaw = await readFile(projPath, "utf-8");
-          const projData = matter(projRaw);
+          const projData = parseDocument(projRaw);
 
           // Recount completed tasks
           const taskDir = join(root, PROJECTS_DIR, projectSlug, "tasks");
@@ -219,7 +220,7 @@ export function registerTaskTools(server: McpServer): void {
             for (const tf of taskFiles.filter((t: string) => t.endsWith(".md"))) {
               try {
                 const tRaw = await readFile(join(taskDir, tf), "utf-8");
-                const { data: tData } = matter(tRaw);
+                const { data: tData } = parseDocument(tRaw);
                 if (tData.type === "task") {
                   taskCount++;
                   if (tData.status === "completed") completedCount++;
@@ -278,7 +279,7 @@ export function registerTaskTools(server: McpServer): void {
       for (const f of files.filter((f) => f.endsWith(".md")).sort()) {
         try {
           const raw = await readFile(join(taskDir, f), "utf-8");
-          const { data } = matter(raw);
+          const { data } = parseDocument(raw);
           if (data.type !== "task") continue;
           if (statusFilter && data.status !== statusFilter) continue;
           if (assigneeSlug && data.assigneeSlug !== assigneeSlug) continue;
@@ -350,7 +351,7 @@ export function registerTaskTools(server: McpServer): void {
       for (const f of files.filter((f) => f.endsWith(".md")).sort()) {
         try {
           const raw = await readFile(join(taskDir, f), "utf-8");
-          const { data } = matter(raw);
+          const { data } = parseDocument(raw);
           if (data.type !== "task") continue;
           const blockedBy = data.blockedBy as string[] | undefined;
           const blocks = data.blocks as string[] | undefined;

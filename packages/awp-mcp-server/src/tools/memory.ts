@@ -4,7 +4,7 @@ import { join } from "node:path";
 import matter from "gray-matter";
 import * as z from "zod";
 import { AWP_VERSION, MEMORY_DIR } from "@agent-workspace/core";
-import { getWorkspaceRoot } from "@agent-workspace/utils";
+import { getWorkspaceRoot, parseDocument } from "@agent-workspace/utils";
 
 /**
  * Register memory-related tools: read_memory, write_memory
@@ -30,7 +30,7 @@ export function registerMemoryTools(server: McpServer): void {
         const path = join(root, "MEMORY.md");
         try {
           const raw = await readFile(path, "utf-8");
-          const { data, content } = matter(raw);
+          const { data, content } = parseDocument(raw);
           return {
             content: [
               {
@@ -59,7 +59,7 @@ export function registerMemoryTools(server: McpServer): void {
           const results: string[] = [];
           for (const f of mdFiles) {
             const raw = await readFile(join(memDir, f), "utf-8");
-            const { data, content } = matter(raw);
+            const { data, content } = parseDocument(raw);
             results.push(`--- ${f} ---\n${JSON.stringify(data, null, 2)}\n${content.trim()}`);
           }
 
@@ -82,7 +82,7 @@ export function registerMemoryTools(server: McpServer): void {
       const path = join(root, MEMORY_DIR, `${target}.md`);
       try {
         const raw = await readFile(path, "utf-8");
-        const { data, content } = matter(raw);
+        const { data, content } = parseDocument(raw);
         return {
           content: [
             {
@@ -129,7 +129,7 @@ export function registerMemoryTools(server: McpServer): void {
 
       try {
         const raw = await readFile(filePath, "utf-8");
-        fileData = matter(raw);
+        fileData = parseDocument(raw);
         if (!fileData.data.entries) fileData.data.entries = [];
         (fileData.data.entries as unknown[]).push(entry);
       } catch {

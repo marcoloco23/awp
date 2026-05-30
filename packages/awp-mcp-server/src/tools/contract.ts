@@ -5,7 +5,8 @@ import matter from "gray-matter";
 import * as z from "zod";
 import { AWP_VERSION, RDP_VERSION, CONTRACTS_DIR, REPUTATION_DIR } from "@agent-workspace/core";
 import type { ReputationDimension } from "@agent-workspace/core";
-import { getWorkspaceRoot, getAgentDid, updateDimension } from "@agent-workspace/utils";
+import { getWorkspaceRoot,
+  parseDocument, getAgentDid, updateDimension } from "@agent-workspace/utils";
 
 /**
  * Register contract-related tools: create, evaluate, list
@@ -114,7 +115,7 @@ export function registerContractTools(server: McpServer): void {
       let fileData: { data: Record<string, unknown>; content: string };
       try {
         const raw = await readFile(filePath, "utf-8");
-        fileData = matter(raw);
+        fileData = parseDocument(raw);
       } catch {
         return {
           content: [{ type: "text" as const, text: `Contract "${slug}" not found.` }],
@@ -171,7 +172,7 @@ export function registerContractTools(server: McpServer): void {
       let repUpdated = false;
       try {
         const repRaw = await readFile(repPath, "utf-8");
-        const repData = matter(repRaw);
+        const repData = parseDocument(repRaw);
         repData.data.lastUpdated = timestamp;
         const signals = repData.data.signals as unknown[];
         signals.push(signal);
@@ -239,7 +240,7 @@ export function registerContractTools(server: McpServer): void {
       for (const f of mdFiles) {
         try {
           const raw = await readFile(join(contractsDir, f), "utf-8");
-          const { data } = matter(raw);
+          const { data } = parseDocument(raw);
           if (data.type === "delegation-contract") {
             if (!statusFilter || data.status === statusFilter) {
               contracts.push({

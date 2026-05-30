@@ -1,8 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import matter from "gray-matter";
-import { getWorkspaceRoot } from "@agent-workspace/utils";
+import { getWorkspaceRoot, parseDocument } from "@agent-workspace/utils";
 
 /**
  * Register config-related tools: read_heartbeat, read_tools, read_agents
@@ -21,7 +20,7 @@ export function registerConfigTools(server: McpServer): void {
       const path = join(root, "HEARTBEAT.md");
       try {
         const raw = await readFile(path, "utf-8");
-        const { data, content } = matter(raw);
+        const { data, content } = parseDocument(raw);
         return {
           content: [
             {
@@ -52,7 +51,7 @@ export function registerConfigTools(server: McpServer): void {
       const path = join(root, "TOOLS.md");
       try {
         const raw = await readFile(path, "utf-8");
-        const { data, content } = matter(raw);
+        const { data, content } = parseDocument(raw);
         return {
           content: [
             {
@@ -83,7 +82,7 @@ export function registerConfigTools(server: McpServer): void {
       const path = join(root, "AGENTS.md");
       try {
         const raw = await readFile(path, "utf-8");
-        const { data, content } = matter(raw);
+        const { data, content } = parseDocument(raw);
         return {
           content: [
             {

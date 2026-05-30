@@ -4,6 +4,21 @@ import type { BaseFrontmatter, WorkspaceFile } from "@agent-workspace/core";
 import { atomicWriteFile } from "./safe-io.js";
 
 /**
+ * Parse a frontmatter document, bypassing gray-matter's content cache.
+ *
+ * gray-matter memoizes parses by content and returns a shallow copy whose
+ * `data` object is shared with the cached entry. Read-modify-write callers
+ * mutate `data` before writing back, which poisons that shared cache — a later
+ * read of a file whose content matches an earlier one can then return stale,
+ * mutated frontmatter. Long-lived processes (the MCP server) are especially
+ * exposed. Passing an options object makes gray-matter skip the cache and
+ * return a fresh, safe-to-mutate result.
+ */
+export function parseDocument(raw: string): matter.GrayMatterFile<string> {
+  return matter(raw, {});
+}
+
+/**
  * Parse an AWP workspace file (Markdown with YAML frontmatter).
  *
  * @template T - The frontmatter type
@@ -14,7 +29,7 @@ export async function parseWorkspaceFile<T extends BaseFrontmatter>(
   filePath: string
 ): Promise<WorkspaceFile<T>> {
   const raw = await readFile(filePath, "utf-8");
-  const { data, content } = matter(raw);
+  const { data, content } = parseDocument(raw);
   return {
     frontmatter: data as T,
     body: content,

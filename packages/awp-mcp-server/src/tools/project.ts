@@ -4,7 +4,8 @@ import { join } from "node:path";
 import matter from "gray-matter";
 import * as z from "zod";
 import { AWP_VERSION, CDP_VERSION, PROJECTS_DIR } from "@agent-workspace/core";
-import { getWorkspaceRoot, getAgentDid } from "@agent-workspace/utils";
+import { getWorkspaceRoot,
+  parseDocument, getAgentDid } from "@agent-workspace/utils";
 
 /**
  * Check if a file exists at the given path.
@@ -114,7 +115,7 @@ export function registerProjectTools(server: McpServer): void {
       for (const f of files.filter((f) => f.endsWith(".md")).sort()) {
         try {
           const raw = await readFile(join(projDir, f), "utf-8");
-          const { data } = matter(raw);
+          const { data } = parseDocument(raw);
           if (data.type !== "project") continue;
           if (statusFilter && data.status !== statusFilter) continue;
           const members = data.members as unknown[] | undefined;
@@ -155,7 +156,7 @@ export function registerProjectTools(server: McpServer): void {
 
       try {
         const raw = await readFile(filePath, "utf-8");
-        const { data, content } = matter(raw);
+        const { data, content } = parseDocument(raw);
 
         // Load tasks
         const tasks: Record<string, unknown>[] = [];
@@ -165,7 +166,7 @@ export function registerProjectTools(server: McpServer): void {
           for (const tf of taskFiles.filter((t: string) => t.endsWith(".md")).sort()) {
             try {
               const tRaw = await readFile(join(taskDir, tf), "utf-8");
-              const { data: tData } = matter(tRaw);
+              const { data: tData } = parseDocument(tRaw);
               const blockedBy = tData.blockedBy as string[] | undefined;
               tasks.push({
                 slug: tf.replace(/\.md$/, ""),

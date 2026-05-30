@@ -7,6 +7,7 @@ import { AWP_VERSION, CDP_VERSION, SWARMS_DIR, REPUTATION_DIR } from "@agent-wor
 import type { SwarmRole, ReputationProfileFrontmatter } from "@agent-workspace/core";
 import {
   getWorkspaceRoot,
+  parseDocument,
   findCandidatesForRole,
   autoRecruitSwarm,
   getSwarmStaffingSummary,
@@ -41,7 +42,7 @@ async function loadReputationProfiles(root: string): Promise<ReputationProfileFr
   for (const f of files.filter((f) => f.endsWith(".md")).sort()) {
     try {
       const raw = await readFile(join(repDir, f), "utf-8");
-      const { data } = matter(raw);
+      const { data } = parseDocument(raw);
       if (data.type === "reputation-profile") {
         profiles.push(data as ReputationProfileFrontmatter);
       }
@@ -156,7 +157,7 @@ export function registerSwarmTools(server: McpServer): void {
       for (const f of files.filter((f) => f.endsWith(".md")).sort()) {
         try {
           const raw = await readFile(join(swarmsDir, f), "utf-8");
-          const { data } = matter(raw);
+          const { data } = parseDocument(raw);
           if (data.type !== "swarm") continue;
           if (statusFilter && data.status !== statusFilter) continue;
 
@@ -203,7 +204,7 @@ export function registerSwarmTools(server: McpServer): void {
 
       try {
         const raw = await readFile(filePath, "utf-8");
-        const { data, content } = matter(raw);
+        const { data, content } = parseDocument(raw);
 
         // Cast to proper type for staffing calculation
         const roles = data.roles as SwarmRole[] | undefined;
@@ -269,7 +270,7 @@ export function registerSwarmTools(server: McpServer): void {
       let swarmData: { data: Record<string, unknown>; content: string };
       try {
         const raw = await readFile(filePath, "utf-8");
-        swarmData = matter(raw);
+        swarmData = parseDocument(raw);
       } catch {
         return {
           content: [{ type: "text" as const, text: `Swarm "${slug}" not found.` }],
@@ -378,7 +379,7 @@ export function registerSwarmTools(server: McpServer): void {
       let swarmData: { data: Record<string, unknown>; content: string };
       try {
         const raw = await readFile(filePath, "utf-8");
-        swarmData = matter(raw);
+        swarmData = parseDocument(raw);
       } catch {
         return {
           content: [{ type: "text" as const, text: `Swarm "${slug}" not found.` }],
@@ -458,7 +459,7 @@ export function registerSwarmTools(server: McpServer): void {
       let swarmData: { data: Record<string, unknown>; content: string };
       try {
         const raw = await readFile(filePath, "utf-8");
-        swarmData = matter(raw);
+        swarmData = parseDocument(raw);
       } catch {
         return {
           content: [{ type: "text" as const, text: `Swarm "${slug}" not found.` }],
@@ -525,7 +526,7 @@ export function registerSwarmTools(server: McpServer): void {
       let swarmData: { data: Record<string, unknown>; content: string };
       try {
         const raw = await readFile(filePath, "utf-8");
-        swarmData = matter(raw);
+        swarmData = parseDocument(raw);
       } catch {
         return {
           content: [{ type: "text" as const, text: `Swarm "${slug}" not found.` }],

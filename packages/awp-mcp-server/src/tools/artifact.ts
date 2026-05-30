@@ -4,7 +4,8 @@ import { join } from "node:path";
 import matter from "gray-matter";
 import * as z from "zod";
 import { AWP_VERSION, SMP_VERSION, ARTIFACTS_DIR, REPUTATION_DIR } from "@agent-workspace/core";
-import { getWorkspaceRoot, getAgentDid, computeDecayedScore, stripUndefined } from "@agent-workspace/utils";
+import { getWorkspaceRoot,
+  parseDocument, getAgentDid, computeDecayedScore, stripUndefined } from "@agent-workspace/utils";
 import type { ReputationDimension } from "@agent-workspace/core";
 
 /**
@@ -27,7 +28,7 @@ export function registerArtifactTools(server: McpServer): void {
       const path = join(root, ARTIFACTS_DIR, `${slug}.md`);
       try {
         const raw = await readFile(path, "utf-8");
-        const { data, content } = matter(raw);
+        const { data, content } = parseDocument(raw);
         return {
           content: [
             {
@@ -76,7 +77,7 @@ export function registerArtifactTools(server: McpServer): void {
 
       try {
         const raw = await readFile(filePath, "utf-8");
-        fileData = matter(raw);
+        fileData = parseDocument(raw);
 
         // Update existing
         fileData.data.version = ((fileData.data.version as number) || 1) + 1;
@@ -186,7 +187,7 @@ export function registerArtifactTools(server: McpServer): void {
       for (const f of mdFiles) {
         try {
           const raw = await readFile(join(artifactsDir, f), "utf-8");
-          const { data } = matter(raw);
+          const { data } = parseDocument(raw);
           if (data.type !== "knowledge-artifact") continue;
 
           const dataTags = data.tags as string[] | undefined;
@@ -249,7 +250,7 @@ export function registerArtifactTools(server: McpServer): void {
       for (const f of mdFiles) {
         try {
           const raw = await readFile(join(artifactsDir, f), "utf-8");
-          const { data, content } = matter(raw);
+          const { data, content } = parseDocument(raw);
           if (data.type !== "knowledge-artifact") continue;
 
           const titleMatch = (data.title as string)?.toLowerCase().includes(queryLower);
@@ -336,8 +337,8 @@ export function registerArtifactTools(server: McpServer): void {
         };
       }
 
-      const target = matter(targetRaw);
-      const source = matter(sourceRaw);
+      const target = parseDocument(targetRaw);
+      const source = parseDocument(sourceRaw);
       const did = await getAgentDid(root);
       const now = new Date();
       const nowIso = now.toISOString();
@@ -363,7 +364,7 @@ export function registerArtifactTools(server: McpServer): void {
               let data: Record<string, unknown>;
               try {
                 const raw = await readFile(join(repDir, f), "utf-8");
-                ({ data } = matter(raw));
+                ({ data } = parseDocument(raw));
               } catch {
                 continue; // skip corrupted reputation files
               }
